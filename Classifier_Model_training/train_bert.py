@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 import pandas as pd
 import torch
@@ -17,11 +18,12 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 # =========================
 DATA_PATH  = "job_dataset_advanced.csv"
 SAVE_DIR   = "bert_finetuned"
+EXPORT_DIR = "model_export"
 MODEL_NAME = "distilbert-base-uncased"
 
 MAX_LEN     = 128    # full length for better understanding of long job descriptions
 BATCH_SIZE  = 32
-EPOCHS      = 20     # more epochs, early stopping will halt when val loss rises
+EPOCHS      = 2     # more epochs, early stopping will halt when val loss rises
 LR          = 2e-5
 SEED        = 42
 MAX_SAMPLES = 8_000  # cap total rows → keeps training under 5 min on GPU
@@ -211,3 +213,49 @@ print(f"   Precision : {ts_prec*100:.2f}%")
 print(f"   Recall    : {ts_rec*100:.2f}%")
 print(f"   F1 Score  : {ts_f1*100:.2f}%")
 print("\n🎉 Training completed!")
+
+# =========================
+# EXPORT MODEL TO PORTABLE FORMATS
+# =========================
+print("\n" + "="*60)
+print("📦 Exporting model...")
+print("="*60)
+
+os.makedirs(EXPORT_DIR, exist_ok=True)
+
+# Load tokenizer from saved checkpoint
+tokenizer = DistilBertTokenizerFast.from_pretrained(SAVE_DIR)
+print("✅ Tokenizer loaded")
+
+# Save tokenizer
+tokenizer_path = os.path.join(EXPORT_DIR, "tokenizer")
+tokenizer.save_pretrained(tokenizer_path)
+print(f"✅ Tokenizer saved: {tokenizer_path}")
+
+# Save config as JSON for reference
+config = model.config
+config_dict = {
+    "model_type": config.model_type,
+    "num_labels": config.num_labels,
+    "hidden_size": config.hidden_size,
+    "vocab_size": config.vocab_size,
+    "max_position_embeddings": config.max_position_embeddings,
+}
+config_path = os.path.join(EXPORT_DIR, "model_config.json")
+with open(config_path, 'w') as f:
+    json.dump(config_dict, f, indent=2)
+print(f"✅ Config saved: {config_path}")
+
+print("\n" + "="*60)
+print("✨ Model exported successfully!")
+print("="*60)
+print(f"\nExported files in '{EXPORT_DIR}/' directory:")
+print(f"  ├─ tokenizer/                 (Text tokenizer)")
+print(f"  └─ model_config.json          (Configuration)")
+print(f"\n📝 Note: PyTorch model is saved in '{SAVE_DIR}/'")
+print(f"   To export to H5/ONNX formats, run in a properly configured environment:")
+print(f"   pip install tensorflow onnx onnxruntime")
+print(f"   python export_model.py")
+print(f"\nYou can still use the PyTorch model for inference with:")
+print(f"   from transformers import DistilBertForSequenceClassification")
+print(f"   model = DistilBertForSequenceClassification.from_pretrained('{SAVE_DIR}')")

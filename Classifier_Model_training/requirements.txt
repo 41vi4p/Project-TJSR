@@ -1,5 +1,21 @@
-torch 
-transformers 
-scikit-learn 
-pandas 
-numpy
+# ML Model Training & Export Dependencies
+# Tested and verified working versions (2026-03-31)
+
+# Core ML Framework
+torch==2.11.0
+transformers==4.57.6
+
+# Data Processing
+pandas==2.3.3
+numpy==1.24.3
+scikit-learn==1.7.2
+
+# Model Export
+h5py==3.14.0
+onnx==1.17.0
+onnxruntime==1.23.2
+onnxscript==0.6.2
+onnx-ir==0.2.0
+
+# Type Checking (required by torch)
+typing-extensions==4.15.0
