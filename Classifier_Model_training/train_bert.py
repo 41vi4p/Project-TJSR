@@ -23,7 +23,7 @@ MODEL_NAME = "distilbert-base-uncased"
 
 MAX_LEN     = 128    # full length for better understanding of long job descriptions
 BATCH_SIZE  = 32
-EPOCHS      = 2     # more epochs, early stopping will halt when val loss rises
+EPOCHS      = 20     # more epochs, early stopping will halt when val loss rises
 LR          = 2e-5
 SEED        = 42
 MAX_SAMPLES = 8_000  # cap total rows → keeps training under 5 min on GPU
@@ -173,6 +173,9 @@ print("─" * 60)
 best_val_loss  = float("inf")
 patience_count = 0
 
+# Store metrics for plotting
+training_metrics = []
+
 for epoch in range(EPOCHS):
     tr_loss, tr_acc, tr_prec, tr_rec, tr_f1 = run_epoch(train_loader, train=True)
     vl_loss, vl_acc, vl_prec, vl_rec, vl_f1 = run_epoch(val_loader,   train=False)
@@ -182,6 +185,21 @@ for epoch in range(EPOCHS):
     print(f"         {'Val':<8}"
           f"{vl_loss:>8.4f}{vl_acc*100:>8.2f}%{vl_prec*100:>8.2f}%{vl_rec*100:>8.2f}%{vl_f1*100:>8.2f}%")
     print()
+
+    # Store metrics for plotting
+    training_metrics.append({
+        "epoch": epoch + 1,
+        "train_loss": float(tr_loss),
+        "val_loss": float(vl_loss),
+        "train_acc": float(tr_acc),
+        "val_acc": float(vl_acc),
+        "train_prec": float(tr_prec),
+        "val_prec": float(vl_prec),
+        "train_recall": float(tr_rec),
+        "val_recall": float(vl_rec),
+        "train_f1": float(tr_f1),
+        "val_f1": float(vl_f1),
+    })
 
     if vl_loss < best_val_loss:
         best_val_loss  = vl_loss
@@ -213,6 +231,16 @@ print(f"   Precision : {ts_prec*100:.2f}%")
 print(f"   Recall    : {ts_rec*100:.2f}%")
 print(f"   F1 Score  : {ts_f1*100:.2f}%")
 print("\n🎉 Training completed!")
+
+# =========================
+# SAVE TRAINING METRICS
+# =========================
+print("\n💾 Saving training metrics...")
+metrics_path = "training_metrics.json"
+with open(metrics_path, 'w') as f:
+    json.dump(training_metrics, f, indent=2)
+print(f"✅ Metrics saved to: {metrics_path}")
+print("   (Use: python plot_training.py to visualize)")
 
 # =========================
 # EXPORT MODEL TO PORTABLE FORMATS
