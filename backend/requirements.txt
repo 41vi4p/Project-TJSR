@@ -1,7 +1,7 @@
 # FastAPI + Server
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-python-multipart==0.0.19
+python-multipart==0.0.22
 websockets==14.1
 
 # Database - PostgreSQL
