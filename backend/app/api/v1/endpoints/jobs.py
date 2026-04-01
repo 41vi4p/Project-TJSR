@@ -40,7 +40,15 @@ async def list_jobs(
         )
 
     if location:
-        query = query.where(Job.location.ilike(f"%{location}%"))
+        from app.services.scraper.nlp_extractor import _COUNTRY_CODES
+        location_conditions = [Job.location.ilike(f"%{location}%")]
+        # Also match stored ISO codes (e.g. "IN" for India) with word-boundary regex
+        # to avoid "%IN%" matching "Province", "Carinthia", etc.
+        iso_code = next((code for code, name in _COUNTRY_CODES.items() if name.lower() == location.lower()), None)
+        if iso_code:
+            # ~* is PostgreSQL case-insensitive regex; \y is a word boundary
+            location_conditions.append(Job.location.op("~*")(rf"(^|[^A-Za-z]){iso_code}([^A-Za-z]|$)"))
+        query = query.where(or_(*location_conditions))
 
     if job_type:
         query = query.where(Job.job_type == job_type)

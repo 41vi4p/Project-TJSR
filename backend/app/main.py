@@ -25,6 +25,15 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
 
+    # Ensure Qdrant collections exist
+    try:
+        from app.services.rag.indexer import ensure_collections
+        import asyncio
+        await asyncio.get_event_loop().run_in_executor(None, ensure_collections)
+        logger.info("Qdrant collections ready")
+    except Exception as e:
+        logger.warning(f"Qdrant collection init failed (non-fatal): {e}")
+
     yield
 
     # Cleanup
