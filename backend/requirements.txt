@@ -33,7 +33,7 @@ scrapling==0.2.99
 crawl4ai==0.4.248
 requests==2.32.3
 httpx==0.27.2
-aiohttp==3.11.11
+aiohttp==3.13.4
 
 # NLP + ML
 spacy==3.8.4
