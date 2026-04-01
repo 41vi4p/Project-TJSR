@@ -18,6 +18,7 @@ from app.services.scraper.scrapling_scraper import ScraplingEngine
 from app.services.scraper.crawl4ai_scraper import Crawl4AIScraper
 from app.services.scraper.newspaper_scraper import NewspaperScraper
 from app.services.scraper.phenom_scraper import PhenomScraper
+from app.services.scraper.google_careers_scraper import GoogleCareersScraper
 from app.services.scraper.nlp_extractor import extract_jobs_from_content
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class ScraperManager:
         "crawl4ai": Crawl4AIScraper,
         "newspaper": NewspaperScraper,
         "phenom": PhenomScraper,
+        "google_careers": GoogleCareersScraper,
     }
 
     # Order to try engines when auto-selecting

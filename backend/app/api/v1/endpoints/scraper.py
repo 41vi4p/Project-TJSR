@@ -307,6 +307,7 @@ async def test_scrape(
     from app.services.scraper.crawl4ai_scraper import Crawl4AIScraper
     from app.services.scraper.newspaper_scraper import NewspaperScraper
     from app.services.scraper.phenom_scraper import PhenomScraper
+    from app.services.scraper.google_careers_scraper import GoogleCareersScraper
     from app.services.scraper.nlp_extractor import extract_jobs_from_content
 
     ENGINE_MAP = {
@@ -316,6 +317,7 @@ async def test_scrape(
         "crawl4ai": Crawl4AIScraper,
         "newspaper": NewspaperScraper,
         "phenom": PhenomScraper,
+        "google_careers": GoogleCareersScraper,
     }
     ENGINE_PRIORITY = ["bs4", "scrapling", "crawl4ai", "selenium", "newspaper"]
 
