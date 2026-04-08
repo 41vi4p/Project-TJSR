@@ -3,7 +3,7 @@
 
 # Core ML Framework
 torch==2.11.0
-transformers==4.57.6
+transformers==5.0.0rc3
 
 # Data Processing
 pandas==2.3.3
