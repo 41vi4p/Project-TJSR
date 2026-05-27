@@ -1,0 +1,310 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0f0f0f;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --secondary: #0ea5e9;
+  --secondary-foreground: #000000;
+  --muted: #404040;
+  --muted-foreground: #a0a0a0;
+  --accent: #a855f7;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #2a2a2a;
+  --input: #1a1a1a;
+  --ring: #8b5cf6;
+  --chart-1: #8b5cf6;
+  --chart-2: #0ea5e9;
+  --chart-3: #06b6d4;
+  --chart-4: #a855f7;
+  --chart-5: #7c3aed;
+  --radius: 0.625rem;
+  --sidebar: #0f0f0f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #0ea5e9;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #8b5cf6;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0f0f0f;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --secondary: #0ea5e9;
+  --secondary-foreground: #ffffff;
+  --muted: #404040;
+  --muted-foreground: #a0a0a0;
+  --accent: #a855f7;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #2a2a2a;
+  --input: #1a1a1a;
+  --ring: #8b5cf6;
+  --chart-1: #8b5cf6;
+  --chart-2: #0ea5e9;
+  --chart-3: #06b6d4;
+  --chart-4: #a855f7;
+  --chart-5: #7c3aed;
+  --sidebar: #0f0f0f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #0ea5e9;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #8b5cf6;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: rgb(139, 92, 246, 0.5);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
+
+/* Utilities */
+  .gradient-purple-blue {
+    background: linear-gradient(to right, rgb(147, 51, 234), rgb(147, 51, 234), rgb(59, 130, 246));
+  }
+
+  .gradient-text {
+    background: linear-gradient(to right, rgb(168, 85, 247), rgb(96, 165, 250));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4), 0 0 40px rgba(168, 85, 247, 0.2);
+  }
+
+  .glow-purple-hover:hover {
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 60px rgba(168, 85, 247, 0.3);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.4), 0 0 40px rgba(14, 165, 233, 0.2);
+  }
+
+  .glow-blue-hover:hover {
+    box-shadow: 0 0 30px rgba(14, 165, 233, 0.6), 0 0 60px rgba(14, 165, 233, 0.3);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .card-dark {
+    background-color: rgb(15, 23, 42);
+    border: 1px solid rgb(30, 41, 59);
+    border-radius: 0.5rem;
+  }
+
+  .card-dark-hover {
+    background-color: rgb(15, 23, 42);
+    border: 1px solid rgb(30, 41, 59);
+    border-radius: 0.5rem;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .card-dark-hover:hover {
+    background-color: rgb(30, 41, 59);
+    border-color: rgb(51, 65, 85);
+  }
+
+  .neon-border {
+    border-color: rgba(168, 85, 247, 0.2);
+  }
+
+  .smooth-transition {
+    transition: all 0.3s ease-in-out;
+  }
+
+/* --- Opening Sequence Demo CSS --- */
+.os-phrases {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.os-phrases h2 {
+  font-family: 'Dosis', 'Lato', sans-serif;
+  font-size: 70px;
+  font-weight: 200;
+  width: 100%;
+  overflow: hidden;
+  text-transform: uppercase;
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  letter-spacing: 14px;
+  text-align: center;
+  opacity: 1; /* Was 0 in original CSS but overridden by jQuery */
+}
+
+.os-phrases h2,
+.os-phrases h2 > span {
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.os-phrases h2 > span {
+  margin: 0 15px;
+}
+
+.os-phrases h2 > span > span {
+  display: inline-block;
+  perspective: 1000px;
+  transform-origin: 50% 50%;
+}
+
+.os-phrases h2 > span > span > span {
+  display: inline-block;
+  color: hsla(0,0%,0%,0);
+  transform-style: preserve-3d;
+  transform: translate3d(0,0,0);
+  animation: OpeningSequence 5.2s linear forwards;
+}
+
+.os-phrases h2:nth-child(2) > span > span > span {
+  animation-delay: 5s;
+}
+
+.os-phrases h2:nth-child(3) > span > span > span {
+  animation-delay: 10s;
+}
+
+.os-phrases h2:nth-child(4) > span > span > span {
+  animation-delay: 15s;
+}
+
+.os-phrases h2:nth-child(5) > span > span > span {
+  font-size: 150px;
+  animation-delay: 21s;
+  animation-duration: 8s;
+}
+
+.os-phrases h2:nth-child(6) > span > span > span {
+  animation-delay: 30s;
+}
+
+.os-phrases h2:nth-child(7) > span > span > span {
+  animation-delay: 34s;
+}
+
+@keyframes OpeningSequence {
+  0% {
+    text-shadow: 0 0 50px #fff;
+    letter-spacing: 80px;
+    opacity: 0.2;
+    transform: rotateY(-90deg);
+  }
+  50% {
+    text-shadow: 0 0 1px #fff;
+    letter-spacing: 14px;
+    opacity: 0.8;
+    transform: rotateY(0deg);
+  }
+  85% {
+    text-shadow: 0 0 1px #fff;
+    opacity: 0.8;
+    transform: rotateY(0deg) translateZ(100px);
+  }
+  100% {
+    text-shadow: 0 0 10px #fff;
+    opacity: 0;
+    transform: translateZ(130px);
+    pointer-events: none;
+  }
+}
+
+.os-phrases h2:nth-child(8) > span > span > span {
+  font-size: 30px;
+  animation: FadeIn 4s linear 40s forwards;
+}
+
+@keyframes FadeIn { 
+  0% {
+    opacity: 0;
+    text-shadow: 0 0 50px #fff;
+  }
+  100% {
+    opacity: 0.8;
+    text-shadow: 0 0 1px #fff;
+  }
+}
+
+/* Bold words targets matching the demo */
+.os-phrases h2:first-child .word3,
+.os-phrases h2:nth-child(2) .word2,
+.os-phrases h2:nth-child(4) .word2 {
+  font-weight: 600;
+}
