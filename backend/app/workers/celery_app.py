@@ -24,6 +24,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.send_daily_digest",
         "schedule": crontab(hour=8, minute=0),
     },
+    "scrape-all-sources": {
+        "task": "app.workers.tasks.scrape_all_sources",
+        "schedule": crontab(minute=0, hour="*/6"),  # every 6 hours
+    },
 }
 
 celery_app.autodiscover_tasks(["app.workers"])

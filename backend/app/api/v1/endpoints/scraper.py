@@ -263,6 +263,21 @@ async def run_scraper_sync(
     from functools import partial
     from app.services.scraper.manager import ScraperManager
 
+    # Mark as running in Redis so the status endpoint reflects it
+    from app.config import get_settings
+    settings = get_settings()
+    try:
+        r = redis_lib.from_url(settings.redis_url)
+        r.set(f"scraper:task:{user.id}", "sync", ex=3600)
+        r.set(f"scraper:status:{user.id}", json.dumps({
+            "progress": 0, "jobs_found": 0,
+            "sources_completed": 0, "sources_total": 0,
+            "current_source": "Starting…",
+        }), ex=3600)
+        r.close()
+    except Exception:
+        pass
+
     loop = asyncio.get_event_loop()
     manager = ScraperManager()
 
@@ -274,6 +289,14 @@ async def run_scraper_sync(
     except Exception as e:
         logger.error(f"Sync scraper run failed: {e}")
         result = {"jobs_found": 0, "sources_completed": 0, "sources_total": 0, "errors": [str(e)]}
+    finally:
+        # Clear running state
+        try:
+            r = redis_lib.from_url(settings.redis_url)
+            r.delete(f"scraper:task:{user.id}")
+            r.close()
+        except Exception:
+            pass
 
     level = "success" if result["jobs_found"] > 0 else ("error" if result["errors"] else "warning")
     log = SystemLog(
@@ -307,6 +330,10 @@ async def test_scrape(
     from app.services.scraper.crawl4ai_scraper import Crawl4AIScraper
     from app.services.scraper.newspaper_scraper import NewspaperScraper
     from app.services.scraper.phenom_scraper import PhenomScraper
+    from app.services.scraper.google_careers_scraper import GoogleCareersScraper
+    from app.services.scraper.playwright_scraper import PlaywrightScraper
+    from app.services.scraper.rss_scraper import RSSFeedScraper
+    from app.services.scraper.sitemap_scraper import SitemapScraper
     from app.services.scraper.nlp_extractor import extract_jobs_from_content
 
     ENGINE_MAP = {
@@ -316,8 +343,12 @@ async def test_scrape(
         "crawl4ai": Crawl4AIScraper,
         "newspaper": NewspaperScraper,
         "phenom": PhenomScraper,
+        "google_careers": GoogleCareersScraper,
+        "playwright": PlaywrightScraper,
+        "rss": RSSFeedScraper,
+        "sitemap": SitemapScraper,
     }
-    ENGINE_PRIORITY = ["bs4", "scrapling", "crawl4ai", "selenium", "newspaper"]
+    ENGINE_PRIORITY = ["bs4", "scrapling", "playwright", "crawl4ai", "selenium", "newspaper"]
 
     errors: list[str] = []
     raw_contents = []

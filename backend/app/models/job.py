@@ -21,6 +21,7 @@ class Job(Base):
     source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     source_name: Mapped[str | None] = mapped_column(String, nullable=True)
     is_tech: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     match_score: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
     date_posted: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

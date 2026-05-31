@@ -18,3 +18,15 @@ async def get_db() -> AsyncSession:
             yield session
         finally:
             await session.close()
+
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def get_db_context():
+    """Async context manager for use outside of FastAPI dependency injection."""
+    async with async_session() as session:
+        try:
+            yield session
+        finally:
+            await session.close()

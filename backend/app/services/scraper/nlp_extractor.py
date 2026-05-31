@@ -80,6 +80,7 @@ class ExtractedJob:
     job_type: str = ""
     salary: str = ""
     apply_link: str = ""
+    date_posted: str = ""  # ISO 8601 string from JSON-LD datePosted
 
 
 def extract_jobs_from_content(text: str, url: str = "", html: str = "", metadata: dict | None = None) -> list[ExtractedJob]:
@@ -239,6 +240,9 @@ def _job_from_json_ld(data: dict, url: str = "") -> ExtractedJob:
 
     # Apply link
     job.apply_link = data.get("url") or url
+
+    # Date posted
+    job.date_posted = data.get("datePosted", "") or ""
 
     return job
 
