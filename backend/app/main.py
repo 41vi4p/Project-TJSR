@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE jobs  ADD COLUMN IF NOT EXISTS raw_content   TEXT",
                 "ALTER TABLE jobs  ADD COLUMN IF NOT EXISTS date_posted   TIMESTAMPTZ",
                 "ALTER TABLE jobs  ADD COLUMN IF NOT EXISTS is_active     BOOLEAN DEFAULT TRUE",
+                "ALTER TABLE bot_configs ADD COLUMN IF NOT EXISTS email_list JSONB DEFAULT '[]'::jsonb",
             ]:
                 try:
                     await conn.execute(text(_sql))
@@ -65,6 +66,9 @@ async def lifespan(app: FastAPI):
             import asyncio
             await asyncio.get_event_loop().run_in_executor(None, ensure_collections)
             logger.info("Background indexing services ready")
+
+            # Reclassify jobs where is_tech is NULL (new improved classifier)
+            await asyncio.get_event_loop().run_in_executor(None, _reclassify_unclassified)
         except Exception as e:
             logger.warning(f"Background task warning: {e}")
 
@@ -77,6 +81,30 @@ async def lifespan(app: FastAPI):
     from app.models.database import engine
     await engine.dispose()
     logger.info("Application shutdown complete")
+
+
+def _reclassify_unclassified():
+    """Reclassify jobs where is_tech is NULL using the improved keyword+ML classifier."""
+    try:
+        from sqlalchemy import create_engine, select
+        from sqlalchemy.orm import Session
+        from app.models.job import Job
+        from app.services.classifier.predictor import classify_job_by_id
+        from app.config import get_settings
+        settings = get_settings()
+        engine = create_engine(settings.sync_database_url)
+        with Session(engine) as session:
+            jobs = session.execute(
+                select(Job.id).where(Job.is_tech == None).limit(500)  # noqa: E711
+            ).scalars().all()
+        logger.info(f"Reclassifying {len(jobs)} unclassified jobs")
+        for job_id in jobs:
+            try:
+                classify_job_by_id(job_id)
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning(f"Reclassification failed: {e}")
 
 
 def create_app() -> FastAPI:

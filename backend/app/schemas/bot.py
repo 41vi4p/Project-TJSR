@@ -7,6 +7,7 @@ class BotConfigUpdate(BaseModel):
     digest_time: str | None = None  # HH:MM format
     notification_prefs: dict | None = None
     target_domains: list[str] | None = None
+    email_list: list[str] | None = None
 
 
 class BotConfigResponse(BaseModel):
@@ -16,6 +17,7 @@ class BotConfigResponse(BaseModel):
     digest_time: str
     notification_prefs: dict | None = None
     target_domains: list[str] | None = None
+    email_list: list[str] | None = None
     telegram_connected: bool = False
     updated_at: str
 

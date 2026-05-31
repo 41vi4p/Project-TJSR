@@ -272,6 +272,7 @@ export const scraperApi = {
   deleteConfig: (id: string) => api.delete(`/scraper/configs/${id}`),
   run: (configIds?: string[]) => api.post('/scraper/run', { config_ids: configIds }),
   runSync: (configIds?: string[]) => api.post<SyncRunResult>('/scraper/run/sync', { config_ids: configIds }),
+  discover: () => api.post<SyncRunResult>('/scraper/discover', {}),
   stop: () => api.post('/scraper/stop', {}),
   status: () => api.get<ScraperStatus>('/scraper/status'),
   test: (url: string, engine: string, config_json?: Record<string, unknown>) =>
@@ -280,10 +281,11 @@ export const scraperApi = {
 
 export const botApi = {
   getConfig: () => api.get<BotConfig>('/bot/config'),
-  updateConfig: (data: Partial<BotConfig>) => api.put<BotConfig>('/bot/config', data),
+  updateConfig: (data: Partial<BotConfig> & { email_list?: string[] }) => api.put<BotConfig>('/bot/config', data),
   getStatus: () => api.get<BotStatus>('/bot/status'),
   connect: (link_code: string) => api.post('/bot/connect', { link_code }),
   disconnect: () => api.post('/bot/disconnect', {}),
+  sendEmailDigest: () => api.post<{ sent: number; total?: number; message?: string; errors?: string[]; preview?: any[] }>('/bot/send-email-digest', {}),
 };
 
 export const logsApi = {

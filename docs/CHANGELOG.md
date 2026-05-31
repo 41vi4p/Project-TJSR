@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.7 — 2026-06-01
+- **Bot & Mail Control page** — unified page replacing the old Bot Control page. Sections: Telegram connect/disconnect/digest settings, Email Digest List (add/remove subscribers, send digest now), Notification Preferences.
+- **Email digest backend** — `POST /bot/send-email-digest` sends personalised HTML job digest to all addresses in the user's email list via SMTP. Returns preview if SMTP not configured.
+- `email_list` JSONB column added to `bot_configs` table.
+- SMTP settings (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_pass`) added to config.
+- Updated README.md with full project details, version badges, stack table, and all features.
+
+## v1.0.6 — 2026-06-01
+- **Automatic job discovery** — new `job_aggregator` service pulls jobs from public job-board APIs (RemoteOK, Arbeitnow, The Muse, and Adzuna if keys provided) with **no source URL needed**.
+- `ScraperManager.ingest_aggregators()` dedups (apply_link + fuzzy title/company) and runs the full classify→match→embed→graph pipeline on discovered jobs.
+- Scheduled `scrape_all_sources` Beat task now also pulls from aggregators every 6h.
+- New `POST /scraper/discover` endpoint + "Discover Jobs" button on the Scraper Control page.
+
 ## v1.0.5 — 2026-06-01
 ### Phase 1 — Latest Updates
 - **Scheduled scraping**: `scrape_all_sources` Celery Beat task runs every 6 hours, scraping all enabled sources automatically.

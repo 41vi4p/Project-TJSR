@@ -89,6 +89,7 @@ export default function ScraperPage() {
   const [configs, setConfigs] = useState<ScraperConfig[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [running, setRunning] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [lastResult, setLastResult] = useState<SyncRunResult | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newUrl, setNewUrl] = useState('');
@@ -143,6 +144,24 @@ export default function ScraperPage() {
       });
     } finally {
       setRunning(false);
+    }
+  };
+
+  const handleDiscover = async () => {
+    if (discovering) return;
+    setDiscovering(true);
+    setLastResult(null);
+    try {
+      const result = await scraperApi.discover();
+      setLastResult(result);
+      await Promise.all([loadLogs(), loadStatus()]);
+    } catch (e: unknown) {
+      setLastResult({
+        jobs_found: 0, sources_completed: 0, sources_total: 0,
+        errors: [e instanceof Error ? e.message : 'Discovery failed'],
+      });
+    } finally {
+      setDiscovering(false);
     }
   };
 
@@ -203,18 +222,29 @@ export default function ScraperPage() {
   return (
     <div className="max-w-7xl">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold theme-text mb-2">Scraper Control</h1>
           <p className="text-gray-400">Monitor and control your job scraper</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center space-x-2 px-4 py-2 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text font-semibold hover:shadow-lg transition-all"
-        >
-          <Plus size={18} />
-          <span>Add Source</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDiscover}
+            disabled={discovering}
+            title="Auto-discover jobs from public job APIs (RemoteOK, Arbeitnow, The Muse) — no URL needed"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border theme-border theme-text hover:bg-yellow-400/10 transition-all disabled:opacity-50"
+          >
+            {discovering ? <Loader2 size={18} className="animate-spin" /> : <Server size={18} />}
+            <span>{discovering ? 'Discovering…' : 'Discover Jobs'}</span>
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FACC15] text-[#1F2937] rounded-lg font-semibold hover:shadow-lg transition-all"
+          >
+            <Plus size={18} />
+            <span>Add Source</span>
+          </button>
+        </div>
       </div>
 
       {/* Add Source Form */}

@@ -9,11 +9,32 @@ from app.services.rag.retriever import get_context_for_query, search_similar_job
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are TJSR Assistant, an intelligent job search advisor for the TJSR platform.
-You have access to a database of real job postings that have been scraped and indexed.
-Answer questions about jobs, career advice, and market insights using the provided context.
-Be concise, helpful, and specific. When referencing jobs, include the company name and title.
-If you don't have enough information from the context, say so clearly."""
+SYSTEM_PROMPT = """You are TJSR Assistant, an AI job search advisor with access to a live database of real job postings.
+Today's date: {today}. Total active jobs in database: {job_count}.
+
+Your job:
+- Answer questions about specific jobs, companies, required skills, salaries, and locations using the provided context.
+- Give career advice based on the actual jobs available.
+- When listing jobs, always include: title, company, location, key skills, and the apply link.
+- If the user asks about jobs not in the context, say so and suggest they run the scraper or use the Discover Jobs feature.
+- Be concise and specific. Prefer bullet points for job listings."""
+
+
+async def _build_system_prompt() -> str:
+    """Build system prompt with live stats."""
+    from datetime import datetime, timezone
+    try:
+        from sqlalchemy import create_engine, func, select
+        from sqlalchemy.orm import Session
+        from app.models.job import Job
+        from app.config import get_settings
+        engine = create_engine(get_settings().sync_database_url)
+        with Session(engine) as s:
+            count = s.execute(select(func.count()).select_from(Job).where(Job.is_active == True)).scalar() or 0
+    except Exception:
+        count = "unknown"
+    today = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    return SYSTEM_PROMPT.format(today=today, job_count=count)
 
 
 async def get_chat_response(query: str, user_id: str, session_id: str) -> dict:
@@ -21,24 +42,16 @@ async def get_chat_response(query: str, user_id: str, session_id: str) -> dict:
     settings = get_settings()
 
     # Retrieve relevant context
-    context = await get_context_for_query(query, user_id=user_id, limit=5)
+    context = await get_context_for_query(query, user_id=user_id, limit=8)
     sources = await search_similar_jobs(query, limit=5)
 
     # Build conversation history from Redis
     history = _load_history(user_id, session_id)
 
-    # Build messages
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-    # Add recent history (last 6 messages = 3 turns)
+    system = await _build_system_prompt()
+    messages = [{"role": "system", "content": system}]
     messages.extend(history[-6:])
-
-    # Add user message with context
-    user_message = f"""Context from job database:
-{context}
-
-User question: {query}"""
-    messages.append({"role": "user", "content": user_message})
+    messages.append({"role": "user", "content": f"Job database context:\n{context}\n\nQuestion: {query}"})
 
     # Call Ollama
     response_text = await _call_ollama(messages, settings)
@@ -64,15 +77,13 @@ async def stream_chat_response(query: str, user_id: str, session_id: str):
     """Stream a RAG-powered chat response as SSE chunks."""
     settings = get_settings()
 
-    context = await get_context_for_query(query, user_id=user_id, limit=5)
+    context = await get_context_for_query(query, user_id=user_id, limit=8)
     history = _load_history(user_id, session_id)
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    system = await _build_system_prompt()
+    messages = [{"role": "system", "content": system}]
     messages.extend(history[-6:])
-    messages.append({
-        "role": "user",
-        "content": f"Context:\n{context}\n\nQuestion: {query}"
-    })
+    messages.append({"role": "user", "content": f"Job database context:\n{context}\n\nQuestion: {query}"})
 
     full_response = ""
 

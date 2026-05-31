@@ -15,6 +15,7 @@ class BotConfig(Base):
     digest_time: Mapped[time] = mapped_column(Time, default=time(8, 0))
     notification_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)
     target_domains: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=list)
+    email_list: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

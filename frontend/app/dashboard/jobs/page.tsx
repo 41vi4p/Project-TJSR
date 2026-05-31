@@ -39,6 +39,60 @@ type FrontendJob = ReturnType<typeof toFrontendJob>;
 
 // ── Job Detail Modal ───────────────────────────────────────────────────────────
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+// ── Smart description renderer ────────────────────────────────────────────────
+function isHTML(text: string) {
+  return /<[a-z][\s\S]*>/i.test(text);
+}
+function isMarkdown(text: string) {
+  return /^#{1,6}\s|^\*\*|^-\s|^\d+\.\s|\[.+\]\(.+\)/m.test(text);
+}
+
+// Strip dangerous tags, keep formatting
+function sanitizeHTML(html: string) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/on\w+="[^"]*"/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+function JobDescription({ text }: { text: string }) {
+  if (isHTML(text)) {
+    return (
+      <div
+        className="text-sm leading-relaxed break-words prose-sm max-w-none"
+        style={{ color: 'var(--text-main)' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHTML(text) }}
+      />
+    );
+  }
+  if (isMarkdown(text)) {
+    return (
+      <div className="text-sm leading-relaxed break-words" style={{ color: 'var(--text-main)' }}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}
+          components={{
+            h1: ({children}) => <h1 className="text-base font-bold mt-3 mb-1">{children}</h1>,
+            h2: ({children}) => <h2 className="text-sm font-bold mt-3 mb-1">{children}</h2>,
+            h3: ({children}) => <h3 className="text-sm font-semibold mt-2 mb-1">{children}</h3>,
+            ul: ({children}) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+            li: ({children}) => <li className="text-sm">{children}</li>,
+            p:  ({children}) => <p className="mb-2">{children}</p>,
+            strong: ({children}) => <strong className="font-semibold">{children}</strong>,
+            a: ({href, children}) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-yellow-500 underline">{children}</a>,
+          }}>
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
+  }
+  // Plain text
+  return <p className="text-sm whitespace-pre-line leading-relaxed break-words" style={{ color: 'var(--text-main)' }}>{text}</p>;
+}
+
 function JobDetailModal({ job, onClose }: { job: FrontendJob; onClose: () => void }) {
   const hasApplyLink = job.applyLink && job.applyLink !== '#';
 
@@ -86,7 +140,7 @@ function JobDetailModal({ job, onClose }: { job: FrontendJob; onClose: () => voi
           {job.description && (
             <div>
               <p className="text-xs font-semibold theme-muted uppercase tracking-wide mb-2">Description</p>
-              <p className="theme-text text-sm whitespace-pre-line leading-relaxed break-words">{job.description}</p>
+              <JobDescription text={job.description} />
             </div>
           )}
 
@@ -151,7 +205,7 @@ const JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 
 export default function JobsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(['India', 'Mumbai']);
   const [locationInput, setLocationInput] = useState('');
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('date_scraped');
@@ -234,7 +288,7 @@ export default function JobsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar Filters */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4 lg:sticky lg:top-20 lg:self-start">
           <div className="brand-card dark-card rounded-lg p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold theme-text">Filters</h3>

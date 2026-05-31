@@ -136,7 +136,7 @@ export default function ChatPage() {
           </div>
           <h1 className="text-3xl font-bold theme-text">AI Job Assistant</h1>
         </div>
-        <p className="text-gray-400 text-sm ml-14">
+        <p className="theme-muted text-sm ml-14">
           Powered by Ollama (local) • RAG-enabled with your job database
         </p>
       </div>
@@ -161,8 +161,8 @@ export default function ChatPage() {
             <div className={`max-w-[80%] space-y-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
               <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-gradient-to-br from-purple-600/40 to-blue-600/30 border theme-border theme-text rounded-tr-sm'
-                  : '[background:var(--nav-bg)] border theme-border text-gray-200 rounded-tl-sm'
+                  ? 'bg-yellow-400/15 border theme-border theme-text rounded-tr-sm'
+                  : '[background:var(--card-bg)] border theme-border theme-text rounded-tl-sm'
               }`}>
                 {msg.streaming && !msg.content
                   ? <Loader2 size={14} className="animate-spin text-yellow-500" />
@@ -174,14 +174,14 @@ export default function ChatPage() {
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                           ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                           ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                          li: ({ children }) => <li className="text-gray-300">{children}</li>,
-                          strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                          em: ({ children }) => <em className="text-gray-300 italic">{children}</em>,
+                          li: ({ children }) => <li className="theme-text">{children}</li>,
+                          strong: ({ children }) => <strong className="font-semibold theme-text">{children}</strong>,
+                          em: ({ children }) => <em className="theme-muted italic">{children}</em>,
                           code: ({ children, className }) => {
                             const isBlock = className?.includes('language-');
                             return isBlock
-                              ? <code className="block theme-surface rounded-md p-3 mt-2 mb-2 text-xs font-mono text-green-300 overflow-x-auto whitespace-pre">{children}</code>
-                              : <code className="theme-surface rounded px-1.5 py-0.5 text-xs font-mono text-yellow-400">{children}</code>;
+                              ? <code className="block theme-surface rounded-md p-3 mt-2 mb-2 text-xs font-mono text-yellow-500 overflow-x-auto whitespace-pre">{children}</code>
+                              : <code className="theme-surface rounded px-1.5 py-0.5 text-xs font-mono text-yellow-500">{children}</code>;
                           },
                           pre: ({ children }) => <pre className="mb-2">{children}</pre>,
                           h1: ({ children }) => <h1 className="text-lg font-bold theme-text mb-2">{children}</h1>,
@@ -189,10 +189,10 @@ export default function ChatPage() {
                           h3: ({ children }) => <h3 className="text-sm font-semibold theme-text mb-1">{children}</h3>,
                           a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-400 underline">{children}</a>,
                           blockquote: ({ children }) => <blockquote className="border-l-2 theme-border pl-3 theme-muted italic my-2">{children}</blockquote>,
-                          hr: () => <hr className="border-slate-700 my-3" />,
+                          hr: () => <hr className="theme-border my-3" />,
                           table: ({ children }) => <table className="text-xs border-collapse w-full my-2">{children}</table>,
-                          th: ({ children }) => <th className="border border-slate-700 px-2 py-1 text-yellow-400 text-left">{children}</th>,
-                          td: ({ children }) => <td className="border border-slate-700 px-2 py-1 theme-text-soft">{children}</td>,
+                          th: ({ children }) => <th className="border theme-border px-2 py-1 text-yellow-500 text-left">{children}</th>,
+                          td: ({ children }) => <td className="border theme-border px-2 py-1 theme-text">{children}</td>,
                         }}
                       >
                         {msg.content}
@@ -215,7 +215,7 @@ export default function ChatPage() {
                 </div>
               )}
 
-              <span className="text-xs text-gray-600 mx-1">
+              <span className="text-xs theme-muted mx-1">
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -263,7 +263,7 @@ export default function ChatPage() {
           {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
         </button>
       </div>
-      <p className="text-xs text-gray-600 text-center mt-2 flex-shrink-0">
+      <p className="text-xs theme-muted text-center mt-2 flex-shrink-0">
         Press Enter to send • Shift+Enter for new line
       </p>
     </div>

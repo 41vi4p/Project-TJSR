@@ -4,6 +4,25 @@ import Image from 'next/image';
 import { MapPin, Bookmark, ExternalLink, CheckCircle2, Clock } from 'lucide-react';
 import { useState } from 'react';
 
+/** Strip HTML tags and Markdown syntax to readable plain text for card previews. */
+function stripToPlain(text: string): string {
+  return text
+    .replace(/<[^>]+>/g, ' ')           // remove HTML tags
+    .replace(/#{1,6}\s/g, '')           // remove ## headings
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
+    .replace(/\*(.+?)\*/g, '$1')       // *italic*
+    .replace(/`(.+?)`/g, '$1')         // `code`
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1') // [link](url)
+    .replace(/^\s*[-*+]\s/gm, '')      // bullet points
+    .replace(/^\s*\d+\.\s/gm, '')      // numbered lists
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 interface JobCardProps {
   job: {
     id: string;
@@ -157,10 +176,10 @@ export function JobCard({ job, onSave, onViewDetails }: JobCardProps) {
         </div>
       )}
 
-      {/* Description */}
+      {/* Description — strip HTML/Markdown to plain text for card preview */}
       {job.description && (
         <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed line-clamp-2 mb-auto pb-4">
-          {job.description}
+          {stripToPlain(job.description)}
         </p>
       )}
 

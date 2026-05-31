@@ -1,43 +1,55 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { StatCard } from '@/components/dashboard/stat-card';
-import { MessageSquare, Send, Clock, ExternalLink, Unlink, Loader2 } from 'lucide-react';
+import {
+  MessageSquare, Mail, Send, Clock, ExternalLink, Unlink,
+  Loader2, Plus, X, CheckCircle, AlertCircle, Bell,
+} from 'lucide-react';
 import { botApi, type BotConfig, type BotStatus } from '@/lib/api-client';
 
-export default function BotPage() {
-  const [config, setConfig] = useState<BotConfig | null>(null);
-  const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+      ok ? 'bg-green-500/15 text-green-500' : 'bg-red-500/15 text-red-400'
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-green-500' : 'bg-red-400'}`} />
+      {label}
+    </span>
+  );
+}
 
+export default function BotMailPage() {
+  const [config, setConfig]       = useState<BotConfig | null>(null);
+  const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [sendingDigest, setSendingDigest] = useState(false);
+  const [digestResult, setDigestResult]   = useState<string | null>(null);
+
+  // Telegram settings
   const [digestEnabled, setDigestEnabled] = useState(true);
-  const [digestTime, setDigestTime] = useState('08:00');
-  const [notifPrefs, setNotifPrefs] = useState({
-    new_matching_jobs: true,
-    application_updates: true,
-    interview_reminders: true,
-    trending_companies: false,
-  });
+  const [digestTime, setDigestTime]       = useState('08:00');
+  const [linkCode, setLinkCode]           = useState('');
+  const [linking, setLinking]             = useState(false);
+  const [linkMsg, setLinkMsg]             = useState('');
+
+  // Email list
+  const [emailList, setEmailList]   = useState<string[]>([]);
+  const [newEmail, setNewEmail]     = useState('');
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
         const [cfg, status] = await Promise.all([botApi.getConfig(), botApi.getStatus()]);
         setConfig(cfg);
         setBotStatus(status);
         setDigestEnabled(cfg.daily_digest_enabled);
         setDigestTime(cfg.digest_time);
-        if (cfg.notification_prefs) {
-          setNotifPrefs(prev => ({ ...prev, ...cfg.notification_prefs }));
-        }
-      } catch {
-        // backend offline
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+        setEmailList((cfg as any).email_list || []);
+      } catch { /* backend offline */ }
+      finally { setLoading(false); }
+    })();
   }, []);
 
   const handleSave = async () => {
@@ -46,11 +58,26 @@ export default function BotPage() {
       const updated = await botApi.updateConfig({
         daily_digest_enabled: digestEnabled,
         digest_time: digestTime,
-        notification_prefs: notifPrefs,
+        email_list: emailList,
       });
       setConfig(updated);
     } catch { /* ignore */ }
     setSaving(false);
+  };
+
+  const handleConnect = async () => {
+    if (!linkCode.trim()) return;
+    setLinking(true);
+    setLinkMsg('');
+    try {
+      await botApi.connect(linkCode.trim());
+      setLinkMsg('✓ Telegram connected!');
+      const status = await botApi.getStatus();
+      setBotStatus(status);
+    } catch {
+      setLinkMsg('✗ Invalid or expired code. Try again.');
+    }
+    setLinking(false);
   };
 
   const handleDisconnect = async () => {
@@ -60,186 +87,201 @@ export default function BotPage() {
     } catch { /* ignore */ }
   };
 
-  const isConnected = botStatus?.connected ?? (config?.telegram_connected ?? false);
-  const botUsername = botStatus?.bot_username;
+  const addEmail = () => {
+    const e = newEmail.trim().toLowerCase();
+    if (!e) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setEmailError('Invalid email address'); return; }
+    if (emailList.includes(e)) { setEmailError('Already in list'); return; }
+    setEmailList(prev => [...prev, e]);
+    setNewEmail('');
+    setEmailError('');
+  };
+
+  const removeEmail = (e: string) => setEmailList(prev => prev.filter(x => x !== e));
+
+  const handleSendDigest = async () => {
+    setSendingDigest(true);
+    setDigestResult(null);
+    try {
+      const res = await botApi.sendEmailDigest();
+      setDigestResult(res.message || `Sent to ${res.sent}/${res.total} addresses.`);
+    } catch (err: any) {
+      setDigestResult('Failed: ' + (err.message || 'Unknown error'));
+    }
+    setSendingDigest(false);
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 size={28} className="animate-spin text-yellow-400" />
+    </div>
+  );
+
+  const card = 'brand-card dark-card p-6 mb-5';
 
   return (
-    <div className="max-w-7xl">
+    <div className="max-w-3xl">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold theme-text mb-2">Telegram Bot Control</h1>
-        <p className="text-gray-400">Manage your daily job digest and bot settings</p>
+        <h1 className="text-3xl font-bold theme-text mb-1">Bot & Mail Control</h1>
+        <p className="theme-muted text-sm">Manage Telegram notifications and email digest subscribers</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard
-          label="Bot Status"
-          value={loading ? 'Checking...' : isConnected ? 'Connected' : 'Not Connected'}
-          icon={<MessageSquare size={24} className={isConnected ? 'text-green-400' : 'text-yellow-400'} />}
-        />
-        <StatCard
-          label="Daily Digest"
-          value={digestEnabled ? `Enabled (${digestTime})` : 'Disabled'}
-          icon={<Send size={24} />}
-        />
-        <StatCard
-          label="Deliver Time"
-          value={digestTime}
-          icon={<Clock size={24} />}
-        />
-      </div>
+      {/* ── Telegram Section ── */}
+      <div className={card}>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2 rounded-lg bg-yellow-400/15 border theme-border">
+            <MessageSquare size={18} className="text-yellow-500" />
+          </div>
+          <div>
+            <h2 className="font-semibold theme-text">Telegram Bot</h2>
+            <p className="text-xs theme-muted">Receive job alerts and daily digests via Telegram</p>
+          </div>
+          <div className="ml-auto">
+            <StatusBadge ok={!!botStatus?.connected} label={botStatus?.connected ? 'Connected' : 'Not connected'} />
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Settings */}
-        <div className="lg:col-span-2 brand-card dark-card rounded-lg p-6">
-          <h2 className="text-2xl font-bold theme-text mb-6">Bot Settings</h2>
-
-          <div className="space-y-6">
-            {/* Daily Digest Toggle */}
-            <div className="border-b theme-border pb-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold theme-text">Daily Digest</h3>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={digestEnabled}
-                    onChange={e => setDigestEnabled(e.target.checked)}
-                  />
-                  <div className="w-11 h-6 [background:var(--card-bg2)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-400" />
-                </label>
-              </div>
-              <p className="text-gray-400 text-sm">Receive matching jobs every morning via Telegram</p>
-            </div>
-
-            {/* Delivery Time */}
-            <div className="border-b theme-border pb-6">
-              <h3 className="text-lg font-semibold theme-text mb-4 flex items-center space-x-2">
-                <Clock size={20} />
-                <span>Delivery Time</span>
-              </h3>
-              <input
-                type="time"
-                value={digestTime}
-                onChange={e => setDigestTime(e.target.value)}
-                className="theme-surface border theme-border rounded-lg py-2 px-3 theme-text focus:outline-none focus:theme-border"
-              />
-            </div>
-
-            {/* Notification Preferences */}
-            <div className="border-b theme-border pb-6">
-              <h3 className="text-lg font-semibold theme-text mb-4">Notification Preferences</h3>
-              <div className="space-y-3">
-                {[
-                  { key: 'new_matching_jobs', label: 'New matching jobs' },
-                  { key: 'application_updates', label: 'Application updates' },
-                  { key: 'interview_reminders', label: 'Interview reminders' },
-                  { key: 'trending_companies', label: 'Trending companies' },
-                ].map(({ key, label }) => (
-                  <label key={key} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded theme-border theme-surface accent-purple-600"
-                      checked={notifPrefs[key as keyof typeof notifPrefs]}
-                      onChange={e => setNotifPrefs(prev => ({ ...prev, [key]: e.target.checked }))}
-                    />
-                    <span className="text-gray-300">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Commands */}
+        {botStatus?.connected ? (
+          <div className="flex items-center justify-between p-3 rounded-xl theme-surface border theme-border mb-4">
             <div>
-              <h3 className="text-lg font-semibold theme-text mb-4">Available Commands</h3>
-              <div className="space-y-2 text-sm">
-                {[
-                  { cmd: '/jobs', desc: 'Browse latest matching jobs with inline navigation' },
-                  { cmd: '/stats', desc: 'View your job search statistics' },
-                  { cmd: '/search <query>', desc: 'Search jobs by keywords' },
-                  { cmd: '/settings', desc: 'Adjust bot preferences' },
-                ].map(item => (
-                  <div key={item.cmd} className="flex items-start space-x-3 p-3 theme-input rounded-lg">
-                    <code className="text-yellow-500 font-mono font-semibold whitespace-nowrap">{item.cmd}</code>
-                    <span className="text-gray-400">{item.desc}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm theme-text font-medium">@{botStatus.bot_username || 'TJSR Bot'}</p>
+              <p className="text-xs theme-muted">Chat ID: {botStatus.telegram_chat_id}</p>
             </div>
-
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full flex items-center justify-center space-x-2 bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-60"
-            >
-              {saving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              <span>{saving ? 'Saving...' : 'Save Settings'}</span>
+            <button onClick={handleDisconnect}
+              className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
+              <Unlink size={13} /> Disconnect
             </button>
           </div>
-        </div>
-
-        {/* Bot Status */}
-        <div className="brand-card dark-card rounded-lg p-6">
-          <h2 className="text-lg font-bold theme-text mb-6">Bot Status</h2>
-
-          <div className="space-y-4">
-            {isConnected ? (
-              <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/30 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-green-400 font-semibold">Connected</span>
-                </div>
-                <p className="text-green-300/80 text-sm">Telegram bot is active and delivering messages</p>
-              </div>
-            ) : (
-              <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/30 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-                  <span className="text-yellow-400 font-semibold">Not Connected</span>
-                </div>
-                <p className="text-yellow-300/80 text-sm">Link your Telegram account to receive notifications</p>
-              </div>
-            )}
-
-            {botStatus?.telegram_chat_id && (
-              <div className="border theme-border rounded-lg p-4">
-                <p className="text-gray-300 text-sm font-semibold mb-1">Chat ID:</p>
-                <p className="text-gray-400 font-mono text-xs">{botStatus.telegram_chat_id}</p>
-              </div>
-            )}
-
-            {botUsername && (
-              <a
-                href={`https://t.me/${botUsername}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center space-x-2 bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg dark-card-hover smooth-transition"
-              >
-                <ExternalLink size={18} />
-                <span>Open @{botUsername}</span>
+        ) : (
+          <div className="mb-4 p-4 rounded-xl theme-surface border theme-border">
+            <p className="text-sm theme-text mb-3">
+              1. Open Telegram and message{' '}
+              <a href={`https://t.me/${botStatus?.bot_username || 'your_bot'}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-yellow-500 underline">
+                @{botStatus?.bot_username || 'your_bot'}
               </a>
-            )}
-
-            {!isConnected && (
-              <div className="border theme-border rounded-lg p-4">
-                <p className="text-gray-300 text-sm mb-3">
-                  To connect: open the Telegram bot and send <code className="text-yellow-500">/start</code>. A link code will be generated in the bot chat.
-                </p>
-              </div>
-            )}
-
-            {isConnected && (
-              <button
-                onClick={handleDisconnect}
-                className="w-full flex items-center justify-center space-x-2 border border-red-500/30 rounded-lg py-3 text-red-400 font-semibold hover:bg-red-500/10 smooth-transition"
-              >
-                <Unlink size={18} />
-                <span>Disconnect Bot</span>
+            </p>
+            <p className="text-sm theme-text mb-3">2. Send <code className="bg-yellow-400/15 px-1.5 py-0.5 rounded text-yellow-500">/link</code> to get your code</p>
+            <p className="text-sm theme-text mb-3">3. Paste the code below:</p>
+            <div className="flex gap-2">
+              <input value={linkCode} onChange={e => setLinkCode(e.target.value)}
+                placeholder="Enter link code…"
+                className="flex-1 theme-input px-3 py-2 text-sm rounded-lg"
+                onKeyDown={e => e.key === 'Enter' && handleConnect()} />
+              <button onClick={handleConnect} disabled={linking || !linkCode.trim()}
+                className="px-4 py-2 bg-[#FACC15] text-[#1F2937] rounded-lg text-sm font-semibold disabled:opacity-50 transition-all">
+                {linking ? <Loader2 size={14} className="animate-spin" /> : 'Link'}
               </button>
-            )}
+            </div>
+            {linkMsg && <p className={`text-xs mt-2 ${linkMsg.startsWith('✓') ? 'text-green-500' : 'text-red-400'}`}>{linkMsg}</p>}
+          </div>
+        )}
+
+        {/* Digest settings */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={digestEnabled} onChange={e => setDigestEnabled(e.target.checked)}
+              className="w-4 h-4 accent-yellow-400" />
+            <span className="text-sm theme-text">Daily digest enabled</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <Clock size={14} className="theme-muted" />
+            <input type="time" value={digestTime} onChange={e => setDigestTime(e.target.value)}
+              className="theme-input px-2 py-1 text-sm rounded-lg" />
+            <span className="text-xs theme-muted">UTC</span>
           </div>
         </div>
       </div>
+
+      {/* ── Email List Section ── */}
+      <div className={card}>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2 rounded-lg bg-yellow-400/15 border theme-border">
+            <Mail size={18} className="text-yellow-500" />
+          </div>
+          <div>
+            <h2 className="font-semibold theme-text">Email Digest List</h2>
+            <p className="text-xs theme-muted">These addresses receive personalised job digest emails</p>
+          </div>
+          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-yellow-400/15 text-yellow-500 font-medium">
+            {emailList.length} subscriber{emailList.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Add email */}
+        <div className="flex gap-2 mb-3">
+          <input value={newEmail} onChange={e => { setNewEmail(e.target.value); setEmailError(''); }}
+            placeholder="name@example.com"
+            className="flex-1 theme-input px-3 py-2 text-sm rounded-lg"
+            onKeyDown={e => e.key === 'Enter' && addEmail()} />
+          <button onClick={addEmail}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#FACC15] text-[#1F2937] rounded-lg text-sm font-semibold transition-all">
+            <Plus size={15} /> Add
+          </button>
+        </div>
+        {emailError && <p className="text-xs text-red-400 mb-2">{emailError}</p>}
+
+        {/* Email chips */}
+        {emailList.length > 0 ? (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {emailList.map(e => (
+              <span key={e} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs theme-surface border theme-border theme-text">
+                {e}
+                <button onClick={() => removeEmail(e)} className="text-red-400 hover:text-red-300 transition-colors">
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm theme-muted mb-4">No subscribers yet. Add email addresses above.</p>
+        )}
+
+        {/* Send digest now */}
+        <div className="flex items-center gap-3 pt-4 border-t theme-border">
+          <button onClick={handleSendDigest} disabled={sendingDigest || emailList.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border theme-border theme-text hover:bg-yellow-400/10 transition-colors disabled:opacity-50">
+            {sendingDigest ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+            Send Digest Now
+          </button>
+          {digestResult && (
+            <p className={`text-xs ${digestResult.startsWith('Failed') ? 'text-red-400' : 'text-green-500'}`}>
+              {digestResult}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Notification Prefs ── */}
+      <div className={card}>
+        <div className="flex items-center gap-3 mb-4">
+          <Bell size={18} className="text-yellow-500" />
+          <h2 className="font-semibold theme-text">Notification Preferences</h2>
+        </div>
+        <div className="space-y-3">
+          {[
+            { key: 'new_matching_jobs', label: 'New matching jobs', desc: 'Alert when a job matches your resume skills' },
+            { key: 'application_updates', label: 'Application updates', desc: 'Status changes on tracked applications' },
+            { key: 'trending_companies', label: 'Trending companies', desc: 'Companies with high hiring velocity' },
+          ].map(item => (
+            <div key={item.key} className="flex items-center justify-between p-3 rounded-xl theme-surface border theme-border">
+              <div>
+                <p className="text-sm theme-text font-medium">{item.label}</p>
+                <p className="text-xs theme-muted">{item.desc}</p>
+              </div>
+              <input type="checkbox" defaultChecked className="w-4 h-4 accent-yellow-400" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Save */}
+      <button onClick={handleSave} disabled={saving}
+        className="w-full flex items-center justify-center gap-2 py-3 bg-[#FACC15] text-[#1F2937] rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50">
+        {saving ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+        {saving ? 'Saving…' : 'Save Settings'}
+      </button>
     </div>
   );
 }

@@ -138,7 +138,7 @@ def _compute_match_scores(job_id: str):
 
 @celery_app.task(name="app.workers.tasks.scrape_all_sources")
 def scrape_all_sources():
-    """Scheduled task: scrape all enabled sources + archive stale jobs. Runs every 6h via Beat."""
+    """Scheduled: scrape user sources + pull from aggregator APIs + archive stale jobs. Runs every 6h."""
     from app.services.scraper.manager import ScraperManager
     from sqlalchemy import create_engine, text
     from app.config import get_settings
@@ -146,6 +146,14 @@ def scrape_all_sources():
     logger.info("Beat: starting scheduled scrape_all_sources")
     manager = ScraperManager()
     result = manager.run()
+
+    # Pull from public job aggregator APIs (no URL needed)
+    try:
+        agg = manager.ingest_aggregators()
+        logger.info(f"Beat: aggregators added {agg.get('jobs_found', 0)} jobs")
+    except Exception as e:
+        logger.warning(f"Beat: aggregator ingest failed: {e}")
+
     logger.info(f"Beat: scrape_all_sources complete: {result}")
 
     # Archive jobs older than 30 days
@@ -163,6 +171,13 @@ def scrape_all_sources():
         logger.warning(f"Beat: job archival failed: {e}")
 
     return result
+
+
+@celery_app.task(name="app.workers.tasks.discover_jobs")
+def discover_jobs(providers: list[str] | None = None):
+    """Pull jobs from aggregator APIs on demand."""
+    from app.services.scraper.manager import ScraperManager
+    return ScraperManager().ingest_aggregators(providers=providers)
 
 
 @celery_app.task(name="app.workers.tasks.send_daily_digest")

@@ -136,6 +136,81 @@ class ScraperManager:
 
         return result
 
+    def ingest_aggregators(self, providers: list[str] | None = None, limit_per: int = 100) -> dict:
+        """
+        Pull jobs from public aggregator APIs (RemoteOK, Arbeitnow, The Muse, Adzuna)
+        and save them — no source URL needed. Returns a result summary.
+        """
+        from app.services.scraper.job_aggregator import fetch_all
+
+        result = {"jobs_found": 0, "sources_completed": 0, "sources_total": 0, "errors": []}
+        try:
+            raw_jobs = fetch_all(providers=providers, limit_per=limit_per)
+        except Exception as e:
+            result["errors"].append(f"Aggregator fetch failed: {e}")
+            return result
+
+        result["sources_total"] = len(set(j["source_name"] for j in raw_jobs)) or 0
+        jobs_created = []
+
+        with Session(self.sync_engine) as session:
+            from sqlalchemy import text as sql_text
+            for jd in raw_jobs:
+                if not jd.get("title"):
+                    continue
+                apply_link = jd.get("apply_link") or ""
+
+                # Dedup by apply_link, then fuzzy title+company
+                existing = None
+                if apply_link:
+                    existing = session.execute(
+                        select(Job).where(Job.apply_link == apply_link)
+                    ).scalar_one_or_none()
+                if not existing:
+                    dup = session.execute(sql_text(
+                        "SELECT id FROM jobs WHERE similarity(lower(title), :t) > 0.8 "
+                        "AND similarity(lower(company), :c) > 0.7 LIMIT 1"
+                    ), {"t": jd["title"].lower(), "c": jd["company"].lower()}).fetchone()
+                    existing = dup
+                if existing:
+                    continue
+
+                job = Job(
+                    title=jd["title"],
+                    company=jd["company"],
+                    location=jd["location"],
+                    description=jd["description"],
+                    skills=jd["skills"],
+                    job_type=jd["job_type"],
+                    salary=jd["salary"],
+                    apply_link=apply_link,
+                    source_url=apply_link,
+                    source_name=jd["source_name"],
+                    date_posted=jd.get("date_posted") or datetime.now(timezone.utc),
+                )
+                session.add(job)
+                jobs_created.append(job)
+
+            session.flush()
+            result["jobs_found"] = len(jobs_created)
+
+            # Queue processing pipeline for each new job
+            from app.workers.tasks import process_job_pipeline
+            for job in jobs_created:
+                try:
+                    process_job_pipeline.delay(job.id)
+                except Exception:
+                    try:
+                        process_job_pipeline(job.id)  # inline fallback
+                    except Exception as e:
+                        logger.warning(f"Pipeline failed for {job.id}: {e}")
+
+            session.commit()
+            result["sources_completed"] = result["sources_total"]
+
+        logger.info(f"Aggregator ingest: {result['jobs_found']} new jobs")
+        return result
+
     def _scrape_source(self, config: ScraperConfig, session: Session) -> list[Job]:
         """Scrape a single source and return created jobs."""
         raw_contents = self._fetch_content(config)

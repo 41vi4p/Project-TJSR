@@ -125,11 +125,6 @@ export function Topbar() {
                       ${collapsed ? 'left-0 md:left-16' : 'left-0 md:left-64'}`}
            style={{ backgroundColor: navBg, borderColor: navBrd }}>
 
-        {/* Logo */}
-        <Link href="/dashboard" className="flex-shrink-0 mr-2">
-          <Image src="/TJSR.png" alt="TJSR" width={120} height={36} className="h-8 w-auto object-contain" priority />
-        </Link>
-
         {/* Search */}
         <div className="hidden md:flex flex-1 max-w-xs">
           <div className="relative w-full">

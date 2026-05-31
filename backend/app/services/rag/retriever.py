@@ -94,37 +94,67 @@ async def search_resume_sections(
         client.close()
 
 
-async def get_context_for_query(query: str, user_id: str | None = None, limit: int = 5) -> str:
-    """Build a context string from the most relevant job documents."""
-    results = await search_similar_jobs(query, limit=limit)
-
-    if not results:
-        return "No relevant job information found."
-
-    from sqlalchemy import create_engine, select
+async def get_context_for_query(query: str, user_id: str | None = None, limit: int = 8) -> str:
+    """
+    Build context for the AI from the most relevant jobs.
+    Strategy: Qdrant semantic search first; fall back to recent DB jobs if Qdrant empty.
+    """
+    from sqlalchemy import create_engine, select, desc, or_
     from sqlalchemy.orm import Session
     from app.models.job import Job
     from app.config import get_settings
+    from datetime import datetime, timezone, timedelta
 
     settings = get_settings()
     engine = create_engine(settings.sync_database_url)
 
-    context_parts = []
+    # Try Qdrant semantic search
+    qdrant_results = await search_similar_jobs(query, limit=limit)
+    job_ids_ordered = [r["job_id"] for r in qdrant_results]
+
     with Session(engine) as session:
-        for r in results:
-            job = session.execute(
-                select(Job).where(Job.id == r["job_id"])
-            ).scalar_one_or_none()
+        jobs: list[Job] = []
 
-            if job:
-                context_parts.append(
-                    f"Job: {job.title} at {job.company}\n"
-                    f"Location: {job.location or 'N/A'}\n"
-                    f"Skills: {', '.join(job.skills or [])}\n"
-                    f"Type: {job.job_type or 'N/A'}\n"
-                    f"Salary: {job.salary or 'N/A'}\n"
-                    f"Apply: {job.apply_link or 'N/A'}\n"
-                    f"Description: {(job.description or '')[:300]}...\n"
-                )
+        if job_ids_ordered:
+            # Fetch jobs in Qdrant relevance order
+            job_map = {
+                j.id: j for j in session.execute(
+                    select(Job).where(Job.id.in_(job_ids_ordered))
+                ).scalars().all()
+            }
+            jobs = [job_map[jid] for jid in job_ids_ordered if jid in job_map]
 
-    return "\n---\n".join(context_parts)
+        # Fallback: keyword search in DB + recent jobs
+        if not jobs:
+            keywords = [w for w in query.lower().split() if len(w) > 3]
+            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+            q = select(Job).where(Job.is_active == True, Job.date_scraped >= cutoff)
+            if keywords:
+                q = q.where(or_(
+                    *[Job.title.ilike(f"%{kw}%") for kw in keywords[:3]],
+                    *[Job.description.ilike(f"%{kw}%") for kw in keywords[:2]],
+                ))
+            q = q.order_by(desc(Job.date_scraped)).limit(limit)
+            jobs = list(session.execute(q).scalars().all())
+
+        if not jobs:
+            return "No relevant job listings found in the database. The scraper may not have run yet."
+
+        now = datetime.now(timezone.utc)
+        parts = []
+        for job in jobs:
+            age_days = (now - job.date_scraped.replace(tzinfo=timezone.utc)).days if job.date_scraped else "?"
+            parts.append(
+                f"[Job #{len(parts)+1}]\n"
+                f"Title: {job.title}\n"
+                f"Company: {job.company}\n"
+                f"Location: {job.location or 'Not specified'}\n"
+                f"Type: {job.job_type or 'Not specified'}\n"
+                f"Salary: {job.salary or 'Not specified'}\n"
+                f"Skills: {', '.join((job.skills or [])[:15]) or 'Not listed'}\n"
+                f"Posted: {age_days} day(s) ago\n"
+                f"Apply: {job.apply_link or 'N/A'}\n"
+                f"Description: {(job.description or '')[:500]}\n"
+            )
+
+    return "\n---\n".join(parts)

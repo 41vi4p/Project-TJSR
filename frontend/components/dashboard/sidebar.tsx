@@ -45,25 +45,34 @@ export function Sidebar() {
                        ${collapsed ? 'w-16' : 'w-64'}`}
            style={{ backgroundColor: 'var(--nav-bg)', borderColor: 'var(--nav-border)', backdropFilter: 'blur(16px)' }}>
 
-        {/* Collapse toggle button — sits flush at topbar bottom edge */}
-        <button
-          onClick={toggle}
-          className="hidden md:flex absolute top-16 -right-3 w-6 h-6 rounded-full
-                     items-center justify-center shadow-sm z-10 transition-colors"
-          style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-          {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-        </button>
-
-        {/* Logo */}
-        <div className={`flex items-center mb-4 px-3 pt-[72px] ${collapsed ? 'justify-center' : ''}`}>
+        {/* Top header: collapse toggle + logo */}
+        <div className={`flex flex-col items-center pt-[72px] px-3 mb-4 ${collapsed ? 'gap-3' : ''}`}>
           {collapsed ? (
-            <Link href="/dashboard">
-              <Image src="/icon.svg" alt="TJSR" width={28} height={28} className="w-7 h-7" />
-            </Link>
+            <>
+              <button
+                onClick={toggle}
+                className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                title="Expand sidebar">
+                <ChevronRight size={15} />
+              </button>
+              <Link href="/dashboard">
+                <Image src="/icon.svg" alt="TJSR" width={28} height={28} className="w-7 h-7" />
+              </Link>
+            </>
           ) : (
-            <Link href="/dashboard">
-              <Image src="/TJSR.png" alt="TJSR" width={400} height={120} className="w-44 h-auto object-contain" priority />
-            </Link>
+            <div className="flex items-center justify-between w-full">
+              <Link href="/dashboard">
+                <Image src="/TJSR.png" alt="TJSR" width={400} height={120} className="w-40 h-auto object-contain" priority />
+              </Link>
+              <button
+                onClick={toggle}
+                className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0 ml-2"
+                style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                title="Collapse sidebar">
+                <ChevronLeft size={15} />
+              </button>
+            </div>
           )}
         </div>
 

@@ -249,6 +249,38 @@ async def scraper_websocket(websocket: WebSocket):
             pass
 
 
+@router.post("/discover")
+async def discover_jobs(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Discover jobs from public aggregator APIs (RemoteOK, Arbeitnow, The Muse, Adzuna).
+    No source URL needed — runs synchronously and saves new jobs.
+    """
+    import asyncio
+    from functools import partial
+    from app.services.scraper.manager import ScraperManager
+
+    loop = asyncio.get_event_loop()
+    manager = ScraperManager()
+    try:
+        result = await loop.run_in_executor(None, partial(manager.ingest_aggregators))
+    except Exception as e:
+        logger.error(f"Job discovery failed: {e}")
+        result = {"jobs_found": 0, "sources_completed": 0, "sources_total": 0, "errors": [str(e)]}
+
+    log = SystemLog(
+        user_id=user.id,
+        source="Discover",
+        level="success" if result["jobs_found"] > 0 else "warning",
+        message=f"Discovered {result['jobs_found']} jobs from public job APIs",
+    )
+    db.add(log)
+    await db.commit()
+    return result
+
+
 @router.post("/run/sync")
 async def run_scraper_sync(
     data: ScraperRunRequest = ScraperRunRequest(),
