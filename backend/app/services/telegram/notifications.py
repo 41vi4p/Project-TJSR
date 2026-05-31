@@ -1,6 +1,7 @@
 """Daily digest and match notification system for Telegram."""
 
 import logging
+import html
 from datetime import datetime, timezone, timedelta
 from app.config import get_settings
 from app.services.telegram.keyboards import job_card_keyboard
@@ -29,7 +30,6 @@ def send_all_digests() -> dict:
     errors = 0
 
     with Session(engine) as session:
-        # Get users with digest enabled and telegram connected
         subscribed = session.execute(
             select(User, BotConfig)
             .join(BotConfig, BotConfig.user_id == User.id)
@@ -135,6 +135,68 @@ def send_job_match_notification(user_id: str, job_id: str) -> bool:
         return False
 
 
+async def send_chatbot_message(user_id: str, question: str, response: str) -> bool:
+    """Send a chatbot response notification to Telegram."""
+    from sqlalchemy import select
+    from app.models.database import get_db_context
+    from app.models.user import User
+    settings = get_settings()
+
+    if not settings.telegram_bot_token or settings.telegram_bot_token == "your_telegram_bot_token_here":
+        return False
+
+    async with get_db_context() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        chat_id = user.telegram_chat_id if user and user.telegram_chat_id else settings.telegram_chat_id
+        if not chat_id:
+            return False
+
+    try:
+        from telegram import Bot
+        bot = Bot(token=settings.telegram_bot_token)
+
+        max_body = 3500
+        safe_response = html.escape(response[:max_body] + ("..." if len(response) > max_body else ""))
+
+        text = (
+            f"🤖 <b>TJSR Assistant</b>\n\n"
+            f"❓ <b>You asked:</b>\n<i>{html.escape(question)}</i>\n\n"
+            f"✨ <b>Answer:</b>\n{safe_response}\n\n"
+            f'📜 <i>Type <b>/history</b> in this chat to see previous Dashboard sessions.</i>\n'
+            f'🔗 <a href="{settings.frontend_url}/dashboard">Launch Dashboard</a>'
+        )
+
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="HTML",
+        )
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send chatbot notification: {e}")
+        return False
+
+
+async def create_db_notification(user_id: str, type: str, title: str, message: str):
+    """Create a persistent in-app notification in the database."""
+    from app.models.database import get_db_context
+    from app.models.notification import Notification
+
+    async with get_db_context() as session:
+        notif = Notification(
+            user_id=user_id,
+            type=type,
+            title=title,
+            message=message,
+        )
+        session.add(notif)
+        await session.commit()
+        logger.info(f"In-app notification created for user {user_id}: {title}")
+
+
 def _get_digest_jobs(user, config, session) -> list:
     from sqlalchemy import select, desc, and_
     from app.models.job import Job
@@ -161,7 +223,6 @@ def _build_digest_message(user, jobs: list) -> str:
             f"{i}\\. *{_escape(job.title)}* at {_escape(job.company)}\n"
             f"   📍 {_escape(job.location or 'Remote')} • {_escape(skills or 'N/A')}\n"
         )
-    from app.config import get_settings
     settings = get_settings()
     lines.append(f"\n[View all jobs →]({settings.frontend_url}/dashboard/jobs)")
     return "\n".join(lines)
