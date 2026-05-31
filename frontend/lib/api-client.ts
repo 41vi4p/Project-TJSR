@@ -1,18 +1,29 @@
 'use client';
 
 import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000/api/v1';
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const user = auth.currentUser;
-  if (!user) return {};
-  try {
-    const token = await user.getIdToken();
-    return { Authorization: `Bearer ${token}` };
-  } catch {
-    return {};
-  }
+/** Wait for Firebase to restore auth state, then return the ID token. */
+function getAuthHeaders(): Promise<Record<string, string>> {
+  return new Promise(resolve => {
+    // If already resolved, use it immediately
+    if (auth.currentUser) {
+      auth.currentUser.getIdToken()
+        .then(token => resolve({ Authorization: `Bearer ${token}` }))
+        .catch(() => resolve({}));
+      return;
+    }
+    // Otherwise wait for auth state (fires once on init)
+    const unsub = onAuthStateChanged(auth, user => {
+      unsub();
+      if (!user) { resolve({}); return; }
+      user.getIdToken()
+        .then(token => resolve({ Authorization: `Bearer ${token}` }))
+        .catch(() => resolve({}));
+    });
+  });
 }
 
 async function apiFetch<T = unknown>(

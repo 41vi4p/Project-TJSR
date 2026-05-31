@@ -116,15 +116,15 @@ export default function GraphPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <Network size={28} className="text-purple-400" />
+          <h1 className="text-3xl font-bold theme-text flex items-center gap-3">
+            <Network size={28} className="text-yellow-500" />
             Knowledge Graph
           </h1>
           <p className="text-gray-400 text-sm mt-1">3D visualization of job relationships — click any node to explore</p>
         </div>
-        <div className="text-right text-xs text-gray-500">
+        <div className="text-right text-xs theme-muted">
           {Object.entries(stats).map(([k, v]) => (
-            <span key={k} className="ml-4 text-gray-400">
+            <span key={k} className="ml-4 theme-muted">
               <span className="text-white font-semibold">{v}</span> {k}
             </span>
           ))}
@@ -135,8 +135,8 @@ export default function GraphPage() {
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 space-y-4 overflow-y-auto">
           {/* Search */}
-          <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <div className="brand-card dark-card rounded-lg p-4">
+            <h3 className="text-sm font-semibold theme-text mb-3 flex items-center gap-2">
               <Search size={14} /> Search
             </h3>
             <form onSubmit={handleSearch} className="space-y-2">
@@ -145,18 +145,18 @@ export default function GraphPage() {
                 placeholder="Company name or skill:Python"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                className="w-full theme-surface border theme-border rounded-lg py-2 px-3 text-sm theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:theme-border"
               />
               <button
                 type="submit"
-                className="w-full py-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white text-sm font-medium hover:shadow-lg smooth-transition"
+                className="w-full py-2 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text text-sm font-medium hover:shadow-lg smooth-transition"
               >
                 Focus Subgraph
               </button>
               <button
                 type="button"
                 onClick={() => { setSearchTerm(''); loadGraph(); }}
-                className="w-full py-2 border border-purple-500/20 rounded-lg text-gray-400 text-sm hover:text-white smooth-transition"
+                className="w-full py-2 border theme-border rounded-lg theme-muted text-sm hover:text-[var(--text-main)] smooth-transition"
               >
                 Reset View
               </button>
@@ -164,8 +164,8 @@ export default function GraphPage() {
           </div>
 
           {/* Node type filters */}
-          <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <div className="brand-card dark-card rounded-lg p-4">
+            <h3 className="text-sm font-semibold theme-text mb-3 flex items-center gap-2">
               <Filter size={14} /> Node Types
             </h3>
             <div className="space-y-2">
@@ -175,7 +175,7 @@ export default function GraphPage() {
                   onClick={() => toggleType(type)}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm smooth-transition ${
                     activeTypes.has(type)
-                      ? 'bg-slate-800 text-white'
+                      ? 'theme-surface theme-text'
                       : 'text-gray-500 hover:text-gray-400'
                   }`}
                 >
@@ -196,33 +196,33 @@ export default function GraphPage() {
 
           {/* Selected Node Details */}
           {selectedNode && (
-            <div className="bg-slate-900/50 border border-purple-500/30 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <div className="[background:var(--card-bg)]/50 border theme-border rounded-lg p-4">
+              <h3 className="text-sm font-semibold theme-text mb-3 flex items-center gap-2">
                 <Info size={14} /> Node Details
               </h3>
               <div className="space-y-2">
                 <div>
-                  <span className="text-xs text-gray-500">Type</span>
+                  <span className="text-xs theme-muted">Type</span>
                   <p className="text-sm font-medium capitalize" style={{ color: NODE_TYPE_COLORS[selectedNode.node.type] }}>
                     {selectedNode.node.type}
                   </p>
                 </div>
                 <div>
-                  <span className="text-xs text-gray-500">Label</span>
-                  <p className="text-sm text-white">{selectedNode.node.label}</p>
+                  <span className="text-xs theme-muted">Label</span>
+                  <p className="text-sm theme-text">{selectedNode.node.label}</p>
                 </div>
                 {Object.entries(selectedNode.node.properties || {}).slice(0, 5).map(([k, v]) => (
                   v && (
                     <div key={k}>
-                      <span className="text-xs text-gray-500 capitalize">{k.replace(/_/g, ' ')}</span>
-                      <p className="text-xs text-gray-300 truncate">{String(v)}</p>
+                      <span className="text-xs theme-muted capitalize">{k.replace(/_/g, ' ')}</span>
+                      <p className="text-xs theme-text-soft truncate">{String(v)}</p>
                     </div>
                   )
                 ))}
                 {selectedNode.node.type === 'company' && (
                   <button
                     onClick={() => { setSearchTerm(selectedNode.node.label); loadGraph(selectedNode.node.label); }}
-                    className="w-full mt-2 py-1.5 bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-400 text-xs hover:bg-purple-600/30 smooth-transition"
+                    className="w-full mt-2 py-1.5 bg-yellow-400/15 border theme-border rounded-lg text-yellow-500 text-xs hover:bg-yellow-400/20 smooth-transition"
                   >
                     Focus Company Network
                   </button>
@@ -232,9 +232,9 @@ export default function GraphPage() {
           )}
 
           {/* Legend */}
-          <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-4">
-            <h3 className="text-xs font-semibold text-gray-500 mb-2">Controls</h3>
-            <ul className="text-xs text-gray-500 space-y-1">
+          <div className="brand-card dark-card rounded-lg p-4">
+            <h3 className="text-xs font-semibold theme-muted mb-2">Controls</h3>
+            <ul className="text-xs theme-muted space-y-1">
               <li>🖱️ Left drag — Rotate</li>
               <li>🖱️ Right drag — Pan</li>
               <li>🖱️ Scroll — Zoom</li>
@@ -244,11 +244,11 @@ export default function GraphPage() {
         </div>
 
         {/* Graph Canvas */}
-        <div className="flex-1 bg-slate-950/80 border border-purple-500/20 rounded-lg overflow-hidden relative">
+        <div className="flex-1 [background:var(--card-bg2)]/80 border theme-border rounded-lg overflow-hidden relative">
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 z-10">
+            <div className="absolute inset-0 flex items-center justify-center [background:var(--card-bg2)]/60 z-10">
               <div className="text-center">
-                <Loader2 size={32} className="text-purple-400 animate-spin mx-auto mb-2" />
+                <Loader2 size={32} className="text-yellow-500 animate-spin mx-auto mb-2" />
                 <p className="text-gray-400 text-sm">Loading knowledge graph…</p>
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function GraphPage() {
                 <p className="text-gray-400 text-sm">{error}</p>
                 <button
                   onClick={() => loadGraph()}
-                  className="mt-4 px-4 py-2 bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-400 text-sm hover:bg-purple-600/30 smooth-transition"
+                  className="mt-4 px-4 py-2 bg-yellow-400/15 border theme-border rounded-lg text-yellow-500 text-sm hover:bg-yellow-400/20 smooth-transition"
                 >
                   Retry
                 </button>

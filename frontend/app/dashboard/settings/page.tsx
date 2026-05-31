@@ -138,12 +138,12 @@ export default function SettingsPage() {
     <div className="max-w-4xl">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
+        <h1 className="text-4xl font-bold theme-text mb-2">Settings</h1>
         <p className="text-gray-400">Manage your account and preferences</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-4 border-b border-purple-500/10 mb-8">
+      <div className="flex border-b theme-border mb-8 overflow-x-auto">
         {[
           { id: 'profile', label: 'Profile', icon: User },
           { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -155,13 +155,13 @@ export default function SettingsPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-3 font-medium border-b-2 smooth-transition ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium border-b-2 whitespace-nowrap smooth-transition flex-shrink-0 ${
                 isActive
-                  ? 'text-purple-400 border-purple-400'
-                  : 'text-gray-400 border-transparent hover:text-white'
+                  ? 'text-yellow-500 border-yellow-400'
+                  : 'text-gray-400 border-transparent hover:text-[var(--text-main)]'
               }`}
             >
-              <Icon size={20} />
+              <Icon size={18} />
               <span>{tab.label}</span>
             </button>
           );
@@ -174,26 +174,26 @@ export default function SettingsPage() {
         {activeTab === 'profile' && (
           <div className="space-y-6">
             {/* Profile Picture */}
-            <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-              <h2 className="text-lg font-bold text-white mb-4">Profile Picture</h2>
-              <div className="flex items-center space-x-6">
+            <div className="brand-card dark-card rounded-lg p-6">
+              <h2 className="text-lg font-bold theme-text mb-4">Profile Picture</h2>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {user?.photoURL ? (
                   <Image
                     src={user.photoURL}
                     alt={user.displayName ?? 'Profile'}
                     width={80}
                     height={80}
-                    className="rounded-xl ring-2 ring-purple-500/40"
+                    className="rounded-xl ring-2 ring-yellow-400/40 flex-shrink-0"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-20 h-20 bg-gradient-to-r from-purple-600 to-blue-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#FACC15] text-[#1F2937] rounded-xl flex items-center justify-center text-xl sm:text-2xl font-bold flex-shrink-0">
                     {initials}
                   </div>
                 )}
-                <div>
-                  <p className="text-white font-medium">{user?.displayName ?? 'No name set'}</p>
-                  <p className="text-gray-400 text-sm mt-1">{user?.email}</p>
+                <div className="min-w-0">
+                  <p className="font-medium theme-text truncate">{user?.displayName ?? 'No name set'}</p>
+                  <p className="theme-muted text-sm mt-1 truncate">{user?.email}</p>
                   {isGoogleUser && (
                     <span className="inline-flex items-center space-x-1 mt-2 px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded text-blue-400 text-xs">
                       <svg className="w-3 h-3" viewBox="0 0 24 24">
@@ -210,27 +210,27 @@ export default function SettingsPage() {
             </div>
 
             {/* Basic Info */}
-            <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-              <h2 className="text-lg font-bold text-white mb-6">Basic Information</h2>
+            <div className="brand-card dark-card rounded-lg p-6">
+              <h2 className="text-lg font-bold theme-text mb-6">Basic Information</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Display Name</label>
+                  <label className="block text-sm font-medium theme-text-soft mb-2">Display Name</label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 smooth-transition"
+                    className="w-full theme-surface border theme-border rounded-lg py-2 px-4 theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:theme-border smooth-transition"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                  <label className="block text-sm font-medium theme-text-soft mb-2">Email</label>
                   <input
                     type="email"
                     value={user?.email ?? ''}
                     disabled
-                    className="w-full bg-slate-800/50 border border-purple-500/10 rounded-lg py-2 px-4 text-gray-400 cursor-not-allowed"
+                    className="w-full theme-surface rounded-lg py-2 px-4 theme-muted cursor-not-allowed"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed here.</p>
+                  <p className="text-xs theme-muted mt-1">Email cannot be changed here.</p>
                 </div>
 
                 {profileStatus && <StatusMessage type={profileStatus.type} message={profileStatus.message} />}
@@ -238,7 +238,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSaveProfile}
                   disabled={profileLoading}
-                  className="flex items-center justify-center space-x-2 w-full bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg py-3 text-white font-semibold hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-50"
+                  className="flex items-center justify-center space-x-2 w-full bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-50"
                 >
                   <Save size={20} />
                   <span>{profileLoading ? 'Saving...' : 'Save Changes'}</span>
@@ -247,11 +247,11 @@ export default function SettingsPage() {
             </div>
 
             {/* Sign Out */}
-            <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-              <h2 className="text-lg font-bold text-white mb-4">Session</h2>
+            <div className="brand-card dark-card rounded-lg p-6">
+              <h2 className="text-lg font-bold theme-text mb-4">Session</h2>
               <button
                 onClick={handleSignOut}
-                className="flex items-center space-x-2 px-6 py-3 bg-slate-800 border border-purple-500/20 hover:bg-slate-700 rounded-lg text-white smooth-transition"
+                className="flex items-center space-x-2 px-6 py-3 theme-surface border theme-border hover:bg-[var(--card-bg)] rounded-lg theme-text smooth-transition"
               >
                 <LogOut size={20} />
                 <span>Sign Out</span>
@@ -262,8 +262,8 @@ export default function SettingsPage() {
 
         {/* Notifications Tab */}
         {activeTab === 'notifications' && (
-          <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-            <h2 className="text-lg font-bold text-white mb-6">Notification Preferences</h2>
+          <div className="brand-card dark-card rounded-lg p-6">
+            <h2 className="text-lg font-bold theme-text mb-6">Notification Preferences</h2>
             <div className="space-y-4">
               {(
                 [
@@ -276,11 +276,11 @@ export default function SettingsPage() {
               ).map((notif) => (
                 <div
                   key={notif.key}
-                  className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-purple-500/10"
+                  className="flex items-start sm:items-center justify-between gap-4 p-4 theme-input rounded-lg border theme-border"
                 >
-                  <div>
-                    <p className="text-white font-medium">{notif.label}</p>
-                    <p className="text-gray-400 text-sm">{notif.desc}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium theme-text">{notif.label}</p>
+                    <p className="theme-muted text-sm">{notif.desc}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -291,7 +291,7 @@ export default function SettingsPage() {
                         setNotifSettings((prev) => ({ ...prev, [notif.key]: e.target.checked }))
                       }
                     />
-                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    <div className="w-11 h-6 [background:var(--card-bg2)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-yellow-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-400"></div>
                   </label>
                 </div>
               ))}
@@ -304,34 +304,34 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Change Password — only for email/password users */}
             {isPasswordUser ? (
-              <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-                <h2 className="text-lg font-bold text-white mb-6">Change Password</h2>
+              <div className="brand-card dark-card rounded-lg p-6">
+                <h2 className="text-lg font-bold theme-text mb-6">Change Password</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
+                    <label className="block text-sm font-medium theme-text-soft mb-2">Current Password</label>
                     <input
                       type="password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-purple-500/50 smooth-transition"
+                      className="w-full theme-surface border theme-border rounded-lg py-2 px-4 theme-text focus:outline-none focus:theme-border smooth-transition"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">New Password</label>
+                    <label className="block text-sm font-medium theme-text-soft mb-2">New Password</label>
                     <input
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-purple-500/50 smooth-transition"
+                      className="w-full theme-surface border theme-border rounded-lg py-2 px-4 theme-text focus:outline-none focus:theme-border smooth-transition"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
+                    <label className="block text-sm font-medium theme-text-soft mb-2">Confirm New Password</label>
                     <input
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-purple-500/50 smooth-transition"
+                      className="w-full theme-surface border theme-border rounded-lg py-2 px-4 theme-text focus:outline-none focus:theme-border smooth-transition"
                     />
                   </div>
 
@@ -342,15 +342,15 @@ export default function SettingsPage() {
                   <button
                     onClick={handleChangePassword}
                     disabled={securityLoading}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg py-3 text-white font-semibold hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-50"
+                    className="w-full bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-50"
                   >
                     {securityLoading ? 'Updating...' : 'Update Password'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-                <h2 className="text-lg font-bold text-white mb-2">Password</h2>
+              <div className="brand-card dark-card rounded-lg p-6">
+                <h2 className="text-lg font-bold theme-text mb-2">Password</h2>
                 <p className="text-gray-400 text-sm">
                   You signed in with Google. Password management is handled by your Google account.
                 </p>
@@ -365,7 +365,7 @@ export default function SettingsPage() {
               {!showDeleteConfirm ? (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-semibold smooth-transition"
+                  className="flex items-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg theme-text font-semibold smooth-transition"
                 >
                   <LogOut size={20} />
                   <span>Delete Account</span>
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                       placeholder="Enter your password to confirm"
                       value={deleteConfirmPassword}
                       onChange={(e) => setDeleteConfirmPassword(e.target.value)}
-                      className="w-full bg-slate-800 border border-red-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-red-500/50 smooth-transition"
+                      className="w-full theme-surface border border-red-500/30 rounded-lg py-2 px-4 theme-text focus:outline-none focus:border-red-500/50 smooth-transition"
                     />
                   )}
                   {securityStatus && showDeleteConfirm && (
@@ -391,13 +391,13 @@ export default function SettingsPage() {
                     <button
                       onClick={handleDeleteAccount}
                       disabled={securityLoading}
-                      className="flex-1 bg-red-600 hover:bg-red-700 rounded-lg py-2 text-white font-semibold smooth-transition disabled:opacity-50"
+                      className="flex-1 bg-red-600 hover:bg-red-700 rounded-lg py-2 theme-text font-semibold smooth-transition disabled:opacity-50"
                     >
                       {securityLoading ? 'Deleting...' : 'Confirm Delete'}
                     </button>
                     <button
                       onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmPassword(''); setSecurityStatus(null); }}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg py-2 text-white smooth-transition"
+                      className="flex-1 theme-surface hover:bg-[var(--card-bg)] rounded-lg py-2 theme-text smooth-transition"
                     >
                       Cancel
                     </button>

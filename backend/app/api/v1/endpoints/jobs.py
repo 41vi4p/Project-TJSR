@@ -13,11 +13,14 @@ router = APIRouter()
 @router.get("", response_model=JobListResponse)
 async def list_jobs(
     search: str | None = Query(None),
-    location: str | None = Query(None),
-    job_type: str | None = Query(None),
+    location: str | None = Query(None),   # single (legacy)
+    locations: str | None = Query(None),  # comma-separated multi
+    job_type: str | None = Query(None),   # single (legacy)
+    job_types: str | None = Query(None),  # comma-separated multi
     is_tech: bool | None = Query(None),
     min_confidence: float | None = Query(None),
     skills: str | None = Query(None),  # comma-separated
+    include_expired: bool = Query(False),  # show jobs older than 30 days
     sort_by: str = Query("date_scraped"),
     sort_order: str = Query("desc"),
     page: int = Query(1, ge=1),
@@ -26,9 +29,8 @@ async def list_jobs(
     user: User | None = Depends(get_optional_user),
 ):
     """List jobs with filtering and pagination."""
-    query = select(Job)
+    query = select(Job).where(Job.is_active == True)
 
-    # Apply filters
     if search:
         search_pattern = f"%{search}%"
         query = query.where(
@@ -39,19 +41,22 @@ async def list_jobs(
             )
         )
 
-    if location:
+    # Multi-location filter (OR across all selected locations)
+    all_locations = [l.strip() for l in (locations or location or "").split(",") if l.strip()]
+    if all_locations:
         from app.services.scraper.nlp_extractor import _COUNTRY_CODES
-        location_conditions = [Job.location.ilike(f"%{location}%")]
-        # Also match stored ISO codes (e.g. "IN" for India) with word-boundary regex
-        # to avoid "%IN%" matching "Province", "Carinthia", etc.
-        iso_code = next((code for code, name in _COUNTRY_CODES.items() if name.lower() == location.lower()), None)
-        if iso_code:
-            # ~* is PostgreSQL case-insensitive regex; \y is a word boundary
-            location_conditions.append(Job.location.op("~*")(rf"(^|[^A-Za-z]){iso_code}([^A-Za-z]|$)"))
-        query = query.where(or_(*location_conditions))
+        loc_conditions = []
+        for loc in all_locations:
+            loc_conditions.append(Job.location.ilike(f"%{loc}%"))
+            iso_code = next((code for code, name in _COUNTRY_CODES.items() if name.lower() == loc.lower()), None)
+            if iso_code:
+                loc_conditions.append(Job.location.op("~*")(rf"(^|[^A-Za-z]){iso_code}([^A-Za-z]|$)"))
+        query = query.where(or_(*loc_conditions))
 
-    if job_type:
-        query = query.where(Job.job_type == job_type)
+    # Multi-job-type filter (OR)
+    all_types = [t.strip() for t in (job_types or job_type or "").split(",") if t.strip()]
+    if all_types:
+        query = query.where(or_(*[Job.job_type == t for t in all_types]))
 
     if is_tech is not None:
         query = query.where(Job.is_tech == is_tech)
@@ -63,6 +68,14 @@ async def list_jobs(
         skill_list = [s.strip() for s in skills.split(",")]
         for skill in skill_list:
             query = query.where(Job.skills.op("@>")(f'["{skill}"]'))
+
+    # Expiry: hide jobs older than 30 days unless explicitly requested
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    if include_expired:
+        query = query.where(Job.date_scraped < cutoff)
+    else:
+        query = query.where(Job.date_scraped >= cutoff)
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())

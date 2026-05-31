@@ -20,6 +20,9 @@ const ENGINE_LABELS: Record<string, string> = {
   scrapling: 'Scrapling',
   newspaper: 'Newspaper',
   google_careers: 'Google Careers',
+  playwright: 'Playwright (JS)',
+  rss: 'RSS/Atom Feed',
+  sitemap: 'Sitemap Discovery',
 };
 
 // ── Result Banner ──────────────────────────────────────────────────────────────
@@ -45,7 +48,7 @@ function RunResultBanner({ result, onDismiss }: { result: SyncRunResult; onDismi
                noJobs ? 'Scraper finished — 0 jobs found' :
                `Scraper finished — ${result.jobs_found} jobs saved`}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs theme-muted mt-0.5">
               {result.sources_completed}/{result.sources_total} sources processed
             </p>
 
@@ -69,7 +72,7 @@ function RunResultBanner({ result, onDismiss }: { result: SyncRunResult; onDismi
             )}
           </div>
         </div>
-        <button onClick={onDismiss} className="text-gray-500 hover:text-white text-xs shrink-0">✕</button>
+        <button onClick={onDismiss} className="text-gray-500 hover:text-[var(--text-main)] text-xs shrink-0">✕</button>
       </div>
     </div>
   );
@@ -202,12 +205,12 @@ export default function ScraperPage() {
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Scraper Control</h1>
+          <h1 className="text-4xl font-bold theme-text mb-2">Scraper Control</h1>
           <p className="text-gray-400">Monitor and control your job scraper</p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white font-semibold hover:shadow-lg transition-all"
+          className="flex items-center space-x-2 px-4 py-2 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text font-semibold hover:shadow-lg transition-all"
         >
           <Plus size={18} />
           <span>Add Source</span>
@@ -216,22 +219,22 @@ export default function ScraperPage() {
 
       {/* Add Source Form */}
       {showAddForm && (
-        <div className="bg-slate-900/50 border border-purple-500/30 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Add New Data Source</h3>
+        <div className="[background:var(--card-bg)]/50 border theme-border rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold theme-text mb-4">Add New Data Source</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input
               type="url"
               placeholder="https://company.com/careers"
               value={newUrl}
               onChange={e => setNewUrl(e.target.value)}
-              className="bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+              className="theme-surface border theme-border rounded-lg py-2 px-3 theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:theme-border"
             />
             <input
               type="text"
               placeholder="Source name (optional)"
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              className="bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+              className="theme-surface border theme-border rounded-lg py-2 px-3 theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:theme-border"
             />
             <select
               value={newEngine}
@@ -244,38 +247,41 @@ export default function ScraperPage() {
                   setNewConfigJson(JSON.stringify({ max_pages: 18, wait_time: 20 }, null, 2));
                 }
               }}
-              className="bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-purple-500/50"
+              className="theme-surface border theme-border rounded-lg py-2 px-3 theme-text focus:outline-none focus:theme-border"
             >
               <option value="auto">Auto (recommended)</option>
               <option value="bs4">BS4 — static / JSON-LD sites</option>
+              <option value="playwright">Playwright — JS SPAs (best stealth)</option>
               <option value="phenom">Phenom People — NVIDIA, Comcast, etc.</option>
               <option value="google_careers">Google Careers — google.com/about/careers</option>
               <option value="selenium">Selenium — JavaScript SPAs</option>
               <option value="crawl4ai">Crawl4AI — JS + AI extraction</option>
               <option value="scrapling">Scrapling</option>
+              <option value="rss">RSS/Atom Feed — job feed URLs</option>
+              <option value="sitemap">Sitemap Discovery — auto-find job URLs</option>
             </select>
           </div>
           <div className="mt-3">
-            <label className="text-xs text-gray-500 mb-1 block">Engine config (JSON, optional)</label>
+            <label className="text-xs theme-muted mb-1 block">Engine config (JSON, optional)</label>
             <textarea
               rows={3}
               placeholder='{ "max_pages": 10, "wait_time": 15 }'
               value={newConfigJson}
               onChange={e => setNewConfigJson(e.target.value)}
-              className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-white font-mono placeholder-gray-600 focus:outline-none focus:border-purple-500/50 resize-none"
+              className="w-full theme-surface border theme-border rounded-lg py-2 px-3 text-sm theme-text font-mono placeholder-gray-600 focus:outline-none focus:theme-border resize-none"
             />
           </div>
-          <div className="mt-3 p-3 bg-slate-800/50 rounded-lg text-xs text-gray-500 space-y-0.5">
-            <p><span className="text-purple-300">Tip — NVIDIA jobs.nvidia.com:</span> use <strong className="text-white">Phenom People</strong> engine</p>
-            <p><span className="text-purple-300">Tip — Oracle careers.oracle.com:</span> use <strong className="text-white">Crawl4AI</strong> or <strong className="text-white">Selenium</strong></p>
+          <div className="mt-3 p-3 theme-input rounded-lg text-xs theme-muted space-y-0.5">
+            <p><span className="text-yellow-400">Tip — NVIDIA jobs.nvidia.com:</span> use <strong className="text-white">Phenom People</strong> engine</p>
+            <p><span className="text-yellow-400">Tip — Oracle careers.oracle.com:</span> use <strong className="text-white">Crawl4AI</strong> or <strong className="text-white">Selenium</strong></p>
             <p><span className="text-blue-300">Tip — Google Careers:</span> use <strong className="text-white">Google Careers</strong> engine — add URL like <code className="text-gray-400">google.com/about/careers/applications/jobs/results?location=India</code></p>
-            <p><span className="text-purple-300">Tip — individual job URLs:</span> <strong className="text-white">BS4</strong> works great when the page has JSON-LD</p>
+            <p><span className="text-yellow-400">Tip — individual job URLs:</span> <strong className="text-white">BS4</strong> works great when the page has JSON-LD</p>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={handleAddSource} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white text-sm transition-colors">
+            <button onClick={handleAddSource} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg theme-text text-sm transition-colors">
               Add Source
             </button>
-            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border border-purple-500/20 rounded-lg text-gray-400 hover:text-white text-sm transition-colors">
+            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border theme-border rounded-lg theme-muted hover:text-[var(--text-main)] text-sm transition-colors">
               Cancel
             </button>
           </div>
@@ -294,27 +300,31 @@ export default function ScraperPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Control Panel */}
-        <div className="lg:col-span-2 bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
+        <div className="lg:col-span-2 brand-card dark-card rounded-lg p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">Data Sources</h2>
+            <h2 className="text-2xl font-bold theme-text">Data Sources</h2>
             <span className="text-gray-400 text-sm">{configs.length} configured</span>
           </div>
 
           {/* Live progress (when running) */}
           {running && (
-            <div className="mb-6 p-4 bg-slate-800/60 rounded-lg border border-purple-500/20">
+            <div className="mb-6 p-4 theme-surface rounded-lg border theme-border">
               <div className="flex items-center gap-2 mb-2">
-                <Loader2 size={16} className="animate-spin text-purple-400" />
-                <span className="text-sm text-purple-300 font-medium">
-                  {status.current_source ? `Scraping: ${status.current_source}` : 'Initialising scraper…'}
+                <Loader2 size={16} className="animate-spin text-yellow-500" />
+                <span className="text-sm text-yellow-400 font-medium">
+                  {status.current_source
+                    ? `Scraping: ${status.current_source}`
+                    : status.sources_total > 0
+                      ? `Processing ${status.sources_total} source(s)…`
+                      : 'Connecting to scraper…'}
                 </span>
               </div>
               {status.sources_total > 0 && (
                 <>
-                  <div className="bg-slate-700 rounded-full h-1.5 mb-1">
-                    <div className="bg-gradient-to-r from-purple-600 to-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${status.progress}%` }} />
+                  <div className="[background:var(--card-bg2)] rounded-full h-1.5 mb-1">
+                    <div className="bg-[#FACC15] h-1.5 rounded-full transition-all" style={{ width: `${status.progress}%` }} />
                   </div>
-                  <p className="text-xs text-gray-500">{status.progress}% — {status.sources_completed}/{status.sources_total} sources — {status.jobs_found} jobs found</p>
+                  <p className="text-xs theme-muted">{status.progress}% — {status.sources_completed}/{status.sources_total} sources — {status.jobs_found} jobs found</p>
                 </>
               )}
             </div>
@@ -322,7 +332,7 @@ export default function ScraperPage() {
 
           {/* Sources list */}
           {configs.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 theme-muted">
               <Server size={32} className="mx-auto mb-3 opacity-30" />
               <p className="mb-1">No sources configured</p>
               <p className="text-sm">Click <strong className="text-gray-300">+ Add Source</strong> to add a career page URL</p>
@@ -331,12 +341,12 @@ export default function ScraperPage() {
             <div className="space-y-3 mb-6">
               {configs.map(config => (
                 <div key={config.id} className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                  config.enabled ? 'bg-slate-800/50 border-purple-500/20' : 'bg-slate-900/30 border-slate-700/30 opacity-60'
+                  config.enabled ? 'theme-input theme-border' : '[background:var(--card-bg2)] border-slate-700/30 opacity-60'
                 }`}>
                   <div className="flex-1 min-w-0 mr-4">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-gray-200 text-sm font-medium truncate">{config.source_name || config.source_url}</p>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-400/15 text-yellow-400 shrink-0">
                         {ENGINE_LABELS[config.scraper_engine] || config.scraper_engine}
                       </span>
                       {config.last_status && (
@@ -367,7 +377,7 @@ export default function ScraperPage() {
                   <div className="flex items-center gap-3 shrink-0">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={config.enabled} onChange={() => handleToggleConfig(config)} />
-                      <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <div className="w-11 h-6 [background:var(--card-bg2)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-400"></div>
                     </label>
                     <button onClick={() => handleDeleteConfig(config.id)} className="text-gray-500 hover:text-red-400 transition-colors">
                       <Trash2 size={16} />
@@ -383,7 +393,7 @@ export default function ScraperPage() {
             <button
               onClick={handleRun}
               disabled={running || configs.filter(c => c.enabled).length === 0}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg py-3 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-2 bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {running
                 ? <><Loader2 size={20} className="animate-spin" /> Running… (this may take a few minutes)</>
@@ -391,7 +401,7 @@ export default function ScraperPage() {
             </button>
             <button
               onClick={() => { loadConfigs(); loadLogs(); loadStatus(); }}
-              className="flex items-center gap-2 border border-purple-500/20 rounded-lg py-3 px-6 text-white font-semibold hover:bg-purple-500/10 transition-colors"
+              className="flex items-center gap-2 border theme-border rounded-lg py-3 px-6 theme-text font-semibold hover:bg-yellow-400/10 transition-colors"
             >
               <RefreshCw size={20} />
               <span>Refresh</span>
@@ -406,9 +416,9 @@ export default function ScraperPage() {
         </div>
 
         {/* Activity Feed (from backend logs) */}
-        <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
+        <div className="brand-card dark-card rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">Activity Feed</h2>
+            <h2 className="text-lg font-bold theme-text">Activity Feed</h2>
             <button onClick={loadLogs} className="text-gray-500 hover:text-gray-300 transition-colors">
               <RefreshCw size={14} />
             </button>
@@ -418,7 +428,7 @@ export default function ScraperPage() {
               <p className="text-gray-500 text-sm">No scraper activity yet.</p>
             )}
             {logs.map(log => (
-              <div key={log.id} className="flex items-start gap-2 pb-3 border-b border-purple-500/10 last:border-0">
+              <div key={log.id} className="flex items-start gap-2 pb-3 border-b theme-border last:border-0">
                 <div className="mt-1 shrink-0">
                   {log.type === 'success' ? <CheckCircle size={13} className="text-green-400" /> :
                    log.type === 'error' ? <AlertCircle size={13} className="text-red-400" /> :

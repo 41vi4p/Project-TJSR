@@ -5,7 +5,7 @@ import {
   FileText, Upload, TrendingUp, CheckCircle2, AlertCircle,
   BarChart3, Sparkles, Plus, X, Download, Loader2,
   ClipboardPaste, RefreshCw, Trophy, Zap, Tags, XCircle,
-  Wand2, Save, ChevronRight,
+  Wand2, Save, ChevronRight, Briefcase, MapPin, ExternalLink, Trash2, Eye, EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
@@ -487,12 +487,12 @@ ${form.achievements.some(a => a.trim()) ? `
 </body></html>`;
 }
 
-// ─── Style atoms (matching project dark theme) ────────────────────────────────
-const card = 'bg-slate-900/50 border border-purple-500/20 rounded-lg p-6 mb-5';
-const inp = 'w-full rounded-lg border border-purple-500/20 bg-slate-800/50 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all';
-const ta = 'w-full rounded-lg border border-purple-500/20 bg-slate-800/50 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all resize-none';
-const aiBtn = (loading: boolean, label = 'Enhance') =>
-  `flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 hover:bg-purple-500/20 transition-colors disabled:opacity-50 ${loading ? 'opacity-60' : ''}`;
+// ─── Style atoms (theme-aware) ────────────────────────────────────────────────
+const card = 'brand-card dark-card p-6 mb-5';
+const inp = 'w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 transition-all theme-input';
+const ta = 'w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 transition-all resize-none theme-input';
+const aiBtn = (loading: boolean, _label = 'Enhance') =>
+  `flex items-center gap-1.5 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-xs text-yellow-500 hover:bg-yellow-400/20 transition-colors disabled:opacity-50 ${loading ? 'opacity-60' : ''}`;
 
 // ─── Score ring SVG ───────────────────────────────────────────────────────────
 function ScoreRing({ score }: { score: number }) {
@@ -509,7 +509,7 @@ function ScoreRing({ score }: { score: number }) {
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className="text-3xl font-bold" style={{ color }}>{score}</span>
-        <span className="text-xs text-gray-400">/ 100</span>
+        <span className="text-xs theme-muted">/ 100</span>
       </div>
     </div>
   );
@@ -519,7 +519,7 @@ function ScoreRing({ score }: { score: number }) {
 function SCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className={card}>
-      <h2 className="text-sm font-semibold text-white mb-4">{title}</h2>
+      <h2 className="text-sm font-semibold theme-text mb-4">{title}</h2>
       {children}
     </div>
   );
@@ -527,7 +527,7 @@ function SCard({ title, children }: { title: string; children: React.ReactNode }
 function Lbl({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
+      <label className="block text-xs font-medium theme-muted mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -590,8 +590,51 @@ export default function ResumeAnalyzerPage() {
   const [atsChecking, setAtsChecking] = useState(false);
   const [atsResult, setAtsResult] = useState<ATSResult | null>(null);
 
+  // ── Recommendations state
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [resumeSkills, setResumeSkills] = useState<string[]>([]);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+  // Load persisted skills + resume URL from backend on mount
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const token = await (user as any)?.getIdToken?.();
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`${BACKEND_URL}/api/v1/resume/skills`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.skills?.length) setResumeSkills(data.skills);
+        }
+      } catch { /* non-fatal */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // ── Generate tab
   const [generating, setGenerating] = useState(false);
+  // ── Build tab live preview
+  const [showPreview, setShowPreview] = useState(false);
+
+  async function handleDeleteResume() {
+    if (!user) return;
+    try {
+      const token = await (user as any)?.getIdToken?.();
+      await fetch(`${BACKEND_URL}/api/v1/resume/skills`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setResumeSkills([]);
+      setResumeUrl(null);
+      setUploadedFile(null);
+      setScoreResult(null);
+      setRecommendations([]);
+      toast.success('Resume deleted.');
+    } catch { toast.error('Delete failed'); }
+  }
 
   // Persist build form to localStorage
   useEffect(() => {
@@ -669,6 +712,35 @@ export default function ResumeAnalyzerPage() {
       // The user explicitly requested to NOT auto-populate the Build section
       // when a resume is uploaded on the Score tab.
       toast.success('Analysis complete! (Build auto-import is disabled)');
+
+      // ── Upload to backend for skill extraction + recommendations ──
+      try {
+        const token = await (user as any)?.getIdToken?.();
+        const backendFd = new FormData();
+        backendFd.append('file', file);
+        const uploadRes = await fetch(`${BACKEND_URL}/api/v1/resume/upload`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: backendFd,
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          setResumeSkills(uploadData.skills || []);
+          if (uploadData.resume_url) setResumeUrl(uploadData.resume_url);
+          // Recompute match scores for all jobs, then fetch recommendations
+          await fetch(`${BACKEND_URL}/api/v1/resume/recompute-matches`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const recRes = await fetch(`${BACKEND_URL}/api/v1/resume/recommendations?limit=6`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (recRes.ok) {
+            const recData = await recRes.json();
+            setRecommendations(recData.jobs || []);
+          }
+        }
+      } catch { /* non-fatal */ }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -873,17 +945,17 @@ export default function ResumeAnalyzerPage() {
     <div className="max-w-4xl">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-1">Resume Analyzer</h1>
+        <h1 className="text-3xl font-bold theme-text mb-1">Resume Analyzer</h1>
         <p className="text-gray-400 text-sm">Score · Build · ATS-optimise · Generate your resume using NLP</p>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-slate-900/60 border border-purple-500/20 rounded-xl p-1 mb-6">
+      <div className="flex gap-1 [background:var(--card-bg2)] border theme-border rounded-xl p-1 mb-6">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === t.id
-              ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white shadow-lg'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-[#FACC15] text-[#1F2937] theme-text shadow-lg'
+              : 'text-gray-400 hover:text-[var(--text-main)]'
               }`}>
             {t.icon} <span className="hidden sm:inline">{t.label}</span>
           </button>
@@ -896,36 +968,68 @@ export default function ResumeAnalyzerPage() {
           {/* Upload */}
           <div className={card}>
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={18} className="text-purple-400" />
-              <h2 className="font-semibold text-white">Overall Resume Score</h2>
+              <TrendingUp size={18} className="text-yellow-500" />
+              <h2 className="font-semibold theme-text">Overall Resume Score</h2>
             </div>
-            <p className="text-xs text-gray-400 mb-5">
+            <p className="text-xs theme-muted mb-5">
               Upload your PDF / TXT resume or paste the text below. Our NLP engine checks sections, action verbs, quantification and length.
             </p>
 
             {/* Drag-drop zone */}
             <div
-              onClick={() => fileRef.current?.click()}
+              onClick={() => !uploadedFile && fileRef.current?.click()}
               onDragOver={ev => ev.preventDefault()}
               onDrop={ev => { ev.preventDefault(); const f = ev.dataTransfer.files[0]; if (f) handleFileUpload(f); }}
-              className="flex flex-col items-center justify-center border-2 border-dashed border-purple-500/30 rounded-lg py-10 cursor-pointer hover:border-purple-500/60 transition-colors mb-4 bg-slate-800/20">
-              <Upload size={32} className="text-purple-400 mb-2" />
-              <p className="text-white font-medium text-sm">
-                {uploadedFile ? uploadedFile.name : 'Drag & drop or click to upload'}
-              </p>
-              <p className="text-gray-500 text-xs mt-1">PDF or TXT up to 5 MB</p>
+              className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg py-8 mb-4 transition-colors ${
+                uploadedFile ? 'cursor-default' : 'cursor-pointer'
+              }`}
+              style={{
+                backgroundColor: 'var(--card-bg2)',
+                borderColor: 'var(--border)',
+              }}>
+              {uploadedFile ? (
+                <div className="flex items-center gap-3 px-4">
+                  <FileText size={28} className="text-yellow-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate theme-text">{uploadedFile.name}</p>
+                    <p className="text-xs mt-0.5 theme-muted">{(uploadedFile.size / 1024).toFixed(1)} KB</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {resumeUrl && (
+                      <a href={resumeUrl} target="_blank" rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg text-yellow-500 hover:bg-yellow-400/15 transition-colors" title="View resume">
+                        <ExternalLink size={15} />
+                      </a>
+                    )}
+                    <button onClick={e => { e.stopPropagation(); handleDeleteResume(); }}
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors" title="Delete resume">
+                      <Trash2 size={15} />
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}
+                      className="p-1.5 rounded-lg theme-muted hover:bg-[var(--card-bg)] transition-colors" title="Replace file">
+                      <RefreshCw size={15} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Upload size={32} className="text-yellow-500 mb-2" />
+                  <p className="text-sm font-medium theme-text">Drag & drop or click to upload</p>
+                  <p className="text-xs mt-1 theme-muted">PDF, DOCX or TXT up to 5 MB</p>
+                </>
+              )}
             </div>
-            <input ref={fileRef} type="file" accept=".pdf,.txt" className="hidden"
+            <input ref={fileRef} type="file" accept=".pdf,.txt,.docx" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
 
             <div className="flex items-center gap-3 mb-3">
               <button onClick={() => handleFileUpload(uploadedFile!)} disabled={!uploadedFile || analyzing}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white text-sm font-semibold hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text text-sm font-semibold hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-50">
                 {analyzing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
                 {analyzing ? 'Analysing…' : 'Analyse'}
               </button>
               <button onClick={() => setShowPaste(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors">
+                className="flex items-center gap-1.5 text-xs theme-muted hover:text-[var(--text-main)] transition-colors">
                 <ClipboardPaste size={14} /> Paste text instead
               </button>
             </div>
@@ -936,7 +1040,7 @@ export default function ResumeAnalyzerPage() {
                   placeholder="Paste your full resume text here…"
                   className={`${ta} mb-2`} />
                 <button onClick={handleAnalyzePaste}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white text-sm font-semibold hover:shadow-lg glow-purple-hover smooth-transition">
+                  className="flex items-center gap-2 px-5 py-2 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text text-sm font-semibold hover:shadow-lg dark-card-hover smooth-transition">
                   <Zap size={14} /> Analyse Text
                 </button>
               </div>
@@ -968,15 +1072,15 @@ export default function ResumeAnalyzerPage() {
                     <p className={`text-xl font-bold ${scoreResult.score >= 70 ? 'text-green-400' : scoreResult.score >= 45 ? 'text-amber-400' : 'text-red-400'}`}>
                       {scoreResult.score >= 70 ? 'Strong Resume' : scoreResult.score >= 45 ? 'Moderate — needs polish' : 'Needs significant improvement'}
                     </p>
-                    <p className="text-sm text-gray-400 mt-1">{scoreResult.wordCount} words</p>
+                    <p className="text-sm theme-muted mt-1">{scoreResult.wordCount} words</p>
                     <div className="mt-3 grid grid-cols-3 gap-3 text-center">
                       {[
                         { label: 'Sections', val: `${scoreResult.sectionScores.filter(s => s.present).length}/8` },
                         { label: 'Quantification', val: scoreResult.quantification },
                         { label: 'Action Verbs', val: scoreResult.actionVerbs },
                       ].map(m => (
-                        <div key={m.label} className="bg-slate-800/50 rounded-lg py-2 px-3">
-                          <p className="text-xs text-gray-400">{m.label}</p>
+                        <div key={m.label} className="theme-input rounded-lg py-2 px-3">
+                          <p className="text-xs theme-muted">{m.label}</p>
                           <p className={`text-sm font-semibold ${m.val === 'Good' || m.val === 'Strong' ? 'text-green-400' :
                             m.val === 'Moderate' ? 'text-amber-400' : 'text-white'
                             }`}>{m.val}</p>
@@ -989,13 +1093,117 @@ export default function ResumeAnalyzerPage() {
 
 
               {/* Tip */}
-              <div className="rounded-lg border border-purple-500/20 bg-purple-500/8 p-4 text-xs text-gray-300 mb-5">
-                <p className="text-purple-300 font-semibold mb-1 flex items-center gap-1">
+              <div className="rounded-lg border theme-border bg-purple-500/8 p-4 text-xs theme-text-soft mb-5">
+                <p className="text-yellow-400 font-semibold mb-1 flex items-center gap-1">
                   <Tags size={13} /> Tip — Build & Generate
                 </p>
                 Use the <strong className="text-white">Build</strong> tab to fill your resume, then <strong className="text-white">ATS Check</strong> it against a job description, and finally <strong className="text-white">Generate</strong> a print-ready PDF.
               </div>
             </>
+          )}
+
+          {/* ── Extracted Skills Panel ── */}
+          {resumeSkills.length > 0 && (
+            <div className={card}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Tags size={16} className="text-yellow-500" />
+                  <h2 className="font-semibold theme-text text-sm">Extracted Skills</h2>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-400/15 text-yellow-400">{resumeSkills.length}</span>
+                </div>
+                <button onClick={handleDeleteResume}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors">
+                  <Trash2 size={12} /> Clear
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {resumeSkills.map(s => (
+                  <span key={s} className="px-2.5 py-1 rounded-full text-xs font-medium
+                                           bg-yellow-400/12 text-yellow-400 border theme-border">
+                    {s}
+                  </span>
+                ))}
+              </div>
+              {resumeUrl && (
+                <div className="mt-4 pt-3 border-t theme-border flex items-center gap-3">
+                  <a href={resumeUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-yellow-500 hover:text-yellow-400 transition-colors">
+                    <ExternalLink size={12} /> View uploaded resume
+                  </a>
+                  <a href={resumeUrl} download
+                    className="flex items-center gap-1.5 text-xs text-yellow-500 hover:text-yellow-400 transition-colors">
+                    <Download size={12} /> Download
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Job Recommendations ── */}
+          {recommendations.length > 0 && (
+            <div className={card}>
+              <div className="flex items-center gap-2 mb-1">
+                <Briefcase size={17} className="text-yellow-400" />
+                <h2 className="font-semibold" style={{ color: 'var(--text-main)' }}>Jobs Matching Your Resume</h2>
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-yellow-100/20 text-yellow-500 font-medium">
+                  {recommendations.length} matches
+                </span>
+              </div>
+              {resumeSkills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4 mt-2">
+                  {resumeSkills.slice(0, 10).map(s => (
+                    <span key={s} className="px-2 py-0.5 rounded-md text-[10px] font-medium
+                                             bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+                      {s}
+                    </span>
+                  ))}
+                  {resumeSkills.length > 10 && (
+                    <span className="text-[10px] theme-muted">+{resumeSkills.length - 10} more</span>
+                  )}
+                </div>
+              )}
+              <div className="space-y-3">
+                {recommendations.map((job) => (
+                  <div key={job.id}
+                       className="flex items-start justify-between gap-4 p-4 rounded-xl
+                                  border border-stone-100 dark:border-stone-800
+                                  bg-stone-50 dark:bg-stone-900/50 hover:border-yellow-300/40 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-main)' }}>{job.title}</p>
+                        <span className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                          {job.match_score}% match
+                        </span>
+                      </div>
+                      <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>{job.company}</p>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {job.location && (
+                          <span className="flex items-center gap-1"><MapPin size={11} />{job.location}</span>
+                        )}
+                        {job.salary && <span className="text-yellow-600 dark:text-yellow-400 font-medium">{job.salary}</span>}
+                      </div>
+                      {job.matched_skills?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {job.matched_skills.slice(0, 5).map((s: string) => (
+                            <span key={s} className="px-1.5 py-0.5 rounded text-[10px]
+                                                     bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {job.apply_link && (
+                      <a href={job.apply_link} target="_blank" rel="noopener noreferrer"
+                         className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                                    bg-yellow-400 text-stone-900 hover:bg-yellow-300 transition-colors">
+                        Apply <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
@@ -1004,12 +1212,42 @@ export default function ResumeAnalyzerPage() {
       {tab === 'build' && (
         <>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-gray-400">Data is saved to your account. Use <strong className="text-white">Generate</strong> tab to export as LaTeX/PDF.</p>
-            <button onClick={handleSave}
-              className="flex items-center gap-1.5 text-xs text-purple-300 border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 rounded-lg hover:bg-purple-500/20 transition-colors">
-              <Save size={13} /> Save to Profile
-            </button>
+            <p className="text-xs theme-muted">Data is saved to your account. Use <strong className="text-white">Generate</strong> tab to export as LaTeX/PDF.</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowPreview(v => !v)}
+                className="flex items-center gap-1.5 text-xs theme-muted border theme-border theme-input px-3 py-1.5 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
+                {showPreview ? <EyeOff size={13} /> : <Eye size={13} />}
+                {showPreview ? 'Hide Preview' : 'Live Preview'}
+              </button>
+              <button onClick={handleDownloadResume} disabled={generating}
+                className="flex items-center gap-1.5 text-xs text-yellow-400 border theme-border bg-yellow-400/10 px-3 py-1.5 rounded-lg hover:bg-yellow-400/15 transition-colors disabled:opacity-50">
+                {generating ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                Download
+              </button>
+              <button onClick={handleSave}
+                className="flex items-center gap-1.5 text-xs text-yellow-400 border theme-border bg-yellow-400/10 px-3 py-1.5 rounded-lg hover:bg-yellow-400/15 transition-colors">
+                <Save size={13} /> Save
+              </button>
+            </div>
           </div>
+
+          {/* Live Preview Panel */}
+          {showPreview && (
+            <div className="mb-5 rounded-xl border theme-border [background:var(--nav-bg)] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 border-b theme-border">
+                <span className="text-xs font-semibold text-yellow-400 flex items-center gap-1.5"><Eye size={12} /> Live Preview</span>
+                <span className="text-xs theme-muted">Updates as you type</span>
+              </div>
+              <div className="h-[600px] overflow-auto bg-white">
+                <iframe
+                  srcDoc={buildResumeHTML(form)}
+                  className="w-full h-full border-0"
+                  title="Resume Preview"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Contact */}
           <SCard title="Contact Information">
@@ -1042,7 +1280,7 @@ export default function ResumeAnalyzerPage() {
           {/* Summary */}
           <SCard title="Professional Summary">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-400">3 sentences that sell you.</span>
+              <span className="text-xs theme-muted">3 sentences that sell you.</span>
               <button onClick={handleGenSummary} disabled={genningSum} className={aiBtn(genningSum, 'Generate with NLP')}>
                 {genningSum ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                 {genningSum ? 'Generating…' : 'Enhance'}
@@ -1055,12 +1293,12 @@ export default function ResumeAnalyzerPage() {
 
           {/* Education */}
           <SCard title="Education">
-            <p className="text-xs text-gray-500 mb-3">Latest first.</p>
+            <p className="text-xs theme-muted mb-3">Latest first.</p>
             <div className="space-y-3">
               {form.education.map((edu, i) => (
-                <div key={i} className="rounded-lg border border-purple-500/10 bg-slate-800/30 p-4 relative">
+                <div key={i} className="rounded-lg border theme-border theme-surface p-4 relative">
                   <button onClick={() => upd({ education: form.education.filter((_, x) => x !== i) })}
-                    className="absolute top-3 right-3 text-gray-500 hover:text-white"><X size={14} /></button>
+                    className="absolute top-3 right-3 theme-muted hover:text-[var(--text-main)]"><X size={14} /></button>
                   <div className="grid grid-cols-2 gap-3 mb-2">
                     <Lbl label="Degree"><input className={inp} value={edu.degree} placeholder="B.E. Computer Science"
                       onChange={e => { const ed = [...form.education]; ed[i] = { ...ed[i], degree: e.target.value }; upd({ education: ed }); }} /></Lbl>
@@ -1079,7 +1317,7 @@ export default function ResumeAnalyzerPage() {
               ))}
             </div>
             <button onClick={() => upd({ education: [...form.education, { degree: '', institution: '', year: '', cgpa: '', field: '' }] })}
-              className="mt-3 flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300">
+              className="mt-3 flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-400">
               <Plus size={14} /> Add row
             </button>
           </SCard>
@@ -1093,7 +1331,7 @@ export default function ResumeAnalyzerPage() {
                 onChange={e => upd({ flatSkills: e.target.value })} />
             </Lbl>
             <div className="flex items-center justify-between mt-2 mb-4">
-              <p className="text-xs text-gray-500">NLP taxonomy matching groups skills automatically.</p>
+              <p className="text-xs theme-muted">NLP taxonomy matching groups skills automatically.</p>
               <button onClick={handleAutoCat} disabled={autoCatting} className={aiBtn(autoCatting, 'Auto-categorise')}>
                 {autoCatting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
                 {autoCatting ? 'Categorising…' : 'Auto-categorise'}
@@ -1101,7 +1339,7 @@ export default function ResumeAnalyzerPage() {
             </div>
             {form.skillGroups.length > 0 && (
               <>
-                <p className="text-xs text-gray-400 mb-2">Categorised groups (edit freely)</p>
+                <p className="text-xs theme-muted mb-2">Categorised groups (edit freely)</p>
                 <div className="space-y-2">
                   {form.skillGroups.map((g, i) => (
                     <div key={i} className="flex gap-2 items-center">
@@ -1111,28 +1349,28 @@ export default function ResumeAnalyzerPage() {
                       <input className={`${inp} flex-1`} value={g.skills} placeholder="Python, JavaScript"
                         onChange={e => { const sg = [...form.skillGroups]; sg[i] = { ...sg[i], skills: e.target.value }; upd({ skillGroups: sg }); }} />
                       <button onClick={() => upd({ skillGroups: form.skillGroups.filter((_, x) => x !== i) })}
-                        className="text-gray-500 hover:text-white shrink-0"><X size={14} /></button>
+                        className="text-gray-500 hover:text-[var(--text-main)] shrink-0"><X size={14} /></button>
                     </div>
                   ))}
                 </div>
               </>
             )}
             <button onClick={() => upd({ skillGroups: [...form.skillGroups, { category: '', skills: '' }] })}
-              className="mt-3 flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300">
+              className="mt-3 flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-400">
               <Plus size={14} /> Add category manually
             </button>
           </SCard>
 
           {/* Experience */}
           <SCard title="Experience">
-            <p className="text-xs text-gray-500 mb-3">
-              Enter bullets one per line. Click <Sparkles size={11} className="inline text-purple-400" /> to rewrite with action verbs using NLP.
+            <p className="text-xs theme-muted mb-3">
+              Enter bullets one per line. Click <Sparkles size={11} className="inline text-yellow-500" /> to rewrite with action verbs using NLP.
             </p>
             <div className="space-y-4">
               {form.experience.map((exp, i) => (
-                <div key={i} className="rounded-lg border border-purple-500/10 bg-slate-800/30 p-4 relative">
+                <div key={i} className="rounded-lg border theme-border theme-surface p-4 relative">
                   <button onClick={() => upd({ experience: form.experience.filter((_, x) => x !== i) })}
-                    className="absolute top-3 right-3 text-gray-500 hover:text-white"><X size={14} /></button>
+                    className="absolute top-3 right-3 theme-muted hover:text-[var(--text-main)]"><X size={14} /></button>
                   <div className="grid grid-cols-2 gap-3 mb-2">
                     <Lbl label="Job Title"><input className={inp} value={exp.title} placeholder="Software Engineer Intern"
                       onChange={e => { const ex = [...form.experience]; ex[i] = { ...ex[i], title: e.target.value }; upd({ experience: ex }); }} /></Lbl>
@@ -1145,7 +1383,7 @@ export default function ResumeAnalyzerPage() {
                     <Lbl label="End Date"><input className={inp} value={exp.endDate} placeholder="Dec 2024" disabled={exp.current}
                       onChange={e => { const ex = [...form.experience]; ex[i] = { ...ex[i], endDate: e.target.value }; upd({ experience: ex }); }} /></Lbl>
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-gray-400 mb-2 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs theme-muted mb-2 cursor-pointer">
                     <input type="checkbox" checked={exp.current}
                       onChange={e => { const ex = [...form.experience]; ex[i] = { ...ex[i], current: e.target.checked }; upd({ experience: ex }); }} />
                     Currently working here
@@ -1156,7 +1394,7 @@ export default function ResumeAnalyzerPage() {
                         placeholder={"Built REST APIs reducing response time by 40%.\nLed migration of legacy codebase to TypeScript."}
                         onChange={e => { const ex = [...form.experience]; ex[i] = { ...ex[i], description: e.target.value }; upd({ experience: ex }); }} />
                       <button onClick={() => handleImproveExp(i)} disabled={improvingExp === i}
-                        className="absolute top-2 right-2 flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-xs text-purple-300 hover:bg-purple-500/20 transition-colors disabled:opacity-50">
+                        className="absolute top-2 right-2 flex items-center gap-1 rounded-lg border theme-border bg-yellow-400/10 px-2 py-1 text-xs text-yellow-400 hover:bg-yellow-400/15 transition-colors disabled:opacity-50">
                         {improvingExp === i ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Improve
                       </button>
                     </div>
@@ -1165,21 +1403,21 @@ export default function ResumeAnalyzerPage() {
               ))}
             </div>
             <button onClick={() => upd({ experience: [...form.experience, { title: '', company: '', startDate: '', endDate: '', current: false, description: '' }] })}
-              className="mt-3 flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300">
+              className="mt-3 flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-400">
               <Plus size={14} /> Add experience
             </button>
           </SCard>
 
           {/* Projects */}
           <SCard title="Projects">
-            <p className="text-xs text-gray-500 mb-3">
-              Bullets one per line — click <Sparkles size={11} className="inline text-purple-400" /> to enhance with action verbs.
+            <p className="text-xs theme-muted mb-3">
+              Bullets one per line — click <Sparkles size={11} className="inline text-yellow-500" /> to enhance with action verbs.
             </p>
             <div className="space-y-4">
               {form.projects.map((proj, i) => (
-                <div key={i} className="rounded-lg border border-purple-500/10 bg-slate-800/30 p-4 relative">
+                <div key={i} className="rounded-lg border theme-border theme-surface p-4 relative">
                   <button onClick={() => upd({ projects: form.projects.filter((_, x) => x !== i) })}
-                    className="absolute top-3 right-3 text-gray-500 hover:text-white"><X size={14} /></button>
+                    className="absolute top-3 right-3 theme-muted hover:text-[var(--text-main)]"><X size={14} /></button>
                   <div className="grid grid-cols-2 gap-3 mb-2">
                     <Lbl label="Project Name"><input className={inp} value={proj.name} placeholder="Job Tracker App"
                       onChange={e => { const pr = [...form.projects]; pr[i] = { ...pr[i], name: e.target.value }; upd({ projects: pr }); }} /></Lbl>
@@ -1196,7 +1434,7 @@ export default function ResumeAnalyzerPage() {
                         placeholder={"Built a dashboard tracking 200+ job applications.\nIntegrated AI scoring with 90% accuracy."}
                         onChange={e => { const pr = [...form.projects]; pr[i] = { ...pr[i], description: e.target.value }; upd({ projects: pr }); }} />
                       <button onClick={() => handleImproveProj(i)} disabled={improvingProj === i}
-                        className="absolute top-2 right-2 flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-xs text-purple-300 hover:bg-purple-500/20 transition-colors disabled:opacity-50">
+                        className="absolute top-2 right-2 flex items-center gap-1 rounded-lg border theme-border bg-yellow-400/10 px-2 py-1 text-xs text-yellow-400 hover:bg-yellow-400/15 transition-colors disabled:opacity-50">
                         {improvingProj === i ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Enhance
                       </button>
                     </div>
@@ -1205,7 +1443,7 @@ export default function ResumeAnalyzerPage() {
               ))}
             </div>
             <button onClick={() => upd({ projects: [...form.projects, { name: '', url: '', techStack: '', description: '' }] })}
-              className="mt-3 flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300">
+              className="mt-3 flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-400">
               <Plus size={14} /> Add project
             </button>
           </SCard>
@@ -1220,19 +1458,19 @@ export default function ResumeAnalyzerPage() {
                   <input className={`${inp} flex-1`} value={cert.url} placeholder="Certificate URL (optional)"
                     onChange={e => { const c = [...form.certifications]; c[i] = { ...c[i], url: e.target.value }; upd({ certifications: c }); }} />
                   <button onClick={() => upd({ certifications: form.certifications.filter((_, x) => x !== i) })}
-                    className="text-gray-500 hover:text-white shrink-0"><X size={14} /></button>
+                    className="text-gray-500 hover:text-[var(--text-main)] shrink-0"><X size={14} /></button>
                 </div>
               ))}
             </div>
             <button onClick={() => upd({ certifications: [...form.certifications, { title: '', url: '' }] })}
-              className="mt-3 flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300">
+              className="mt-3 flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-400">
               <Plus size={14} /> Add certification
             </button>
           </SCard>
 
           {/* Achievements */}
           <SCard title="Achievements">
-            <p className="text-xs text-gray-500 mb-3">Rankings, awards, CTF placements, etc.</p>
+            <p className="text-xs theme-muted mb-3">Rankings, awards, CTF placements, etc.</p>
             <div className="space-y-2">
               {form.achievements.map((ach, i) => (
                 <div key={i} className="flex gap-2">
@@ -1240,12 +1478,12 @@ export default function ResumeAnalyzerPage() {
                     placeholder="Top 4% on TryHackMe global platform"
                     onChange={e => { const a = [...form.achievements]; a[i] = e.target.value; upd({ achievements: a }); }} />
                   <button onClick={() => upd({ achievements: form.achievements.filter((_, x) => x !== i) })}
-                    className="text-gray-500 hover:text-white shrink-0"><X size={14} /></button>
+                    className="text-gray-500 hover:text-[var(--text-main)] shrink-0"><X size={14} /></button>
                 </div>
               ))}
             </div>
             <button onClick={() => upd({ achievements: [...form.achievements, ''] })}
-              className="mt-3 flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300">
+              className="mt-3 flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-400">
               <Plus size={14} /> Add achievement
             </button>
           </SCard>
@@ -1253,11 +1491,11 @@ export default function ResumeAnalyzerPage() {
           {/* Footer CTA */}
           <div className="flex gap-3">
             <button onClick={handleSave}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-purple-600 to-blue-500 rounded-xl text-sm font-semibold text-white hover:shadow-lg glow-purple-hover smooth-transition">
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#FACC15] text-[#1F2937] rounded-xl text-sm font-semibold theme-text hover:shadow-lg dark-card-hover smooth-transition">
               <Save size={16} /> Save to Profile
             </button>
             <button onClick={() => setTab('generate')}
-              className="flex items-center gap-1.5 px-5 py-3 border border-purple-500/20 rounded-xl text-sm text-purple-300 hover:bg-purple-500/10 smooth-transition">
+              className="flex items-center gap-1.5 px-5 py-3 border theme-border rounded-xl text-sm text-yellow-400 hover:bg-yellow-400/10 smooth-transition">
               Generate <ChevronRight size={14} />
             </button>
           </div>
@@ -1268,29 +1506,40 @@ export default function ResumeAnalyzerPage() {
       {tab === 'ats' && (
         <div className={card}>
           <div className="flex items-center gap-2 mb-1">
-            <BarChart3 size={18} className="text-purple-400" />
-            <h2 className="font-semibold text-white">ATS Score Checker</h2>
+            <BarChart3 size={18} className="text-yellow-500" />
+            <h2 className="font-semibold theme-text">ATS Score Checker</h2>
           </div>
-          <p className="text-xs text-gray-400 mb-5">
+          <p className="text-xs theme-muted mb-5">
             Paste the job description. The NLP engine uses TF-weighted unigram scoring + bigram matching + multi-word phrase extraction to compute your ATS compatibility against the data in the <strong className="text-white">Build</strong> tab.
           </p>
 
+          {/* Warn if Build form is empty */}
+          {!form.name && !form.flatSkills && form.experience.length === 0 && (
+            <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/8 px-4 py-3">
+              <p className="text-xs text-amber-300">Fill the <strong>Build</strong> tab first for accurate ATS scoring.</p>
+              <button onClick={() => setTab('build')}
+                className="flex items-center gap-1 text-xs text-amber-300 border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 transition-colors whitespace-nowrap">
+                Go to Build <ChevronRight size={12} />
+              </button>
+            </div>
+          )}
+
           <div className="relative mb-4">
-            <ClipboardPaste size={15} className="absolute left-3 top-3 text-gray-500 pointer-events-none" />
+            <ClipboardPaste size={15} className="absolute left-3 top-3 theme-muted pointer-events-none" />
             <textarea rows={8} value={jd} onChange={e => setJd(e.target.value)}
               placeholder="Paste the full job description here…"
-              className="w-full rounded-lg border border-purple-500/20 bg-slate-800/50 pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all resize-none" />
+              className="w-full rounded-lg border theme-border theme-input pl-10 pr-4 py-3 text-sm theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-yellow-400 transition-all resize-none" />
           </div>
 
           <div className="flex gap-3">
             <button onClick={handleATS} disabled={atsChecking || !jd.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white text-sm font-semibold hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-50">
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text text-sm font-semibold hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-50">
               {atsChecking ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
               {atsChecking ? 'Analysing…' : 'Check ATS Score'}
             </button>
             {atsResult && (
               <button onClick={() => { setAtsResult(null); setJd(''); }}
-                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+                className="flex items-center gap-1.5 text-sm theme-muted hover:text-[var(--text-main)] transition-colors">
                 <RefreshCw size={14} /> Reset
               </button>
             )}
@@ -1299,20 +1548,20 @@ export default function ResumeAnalyzerPage() {
           {atsResult && (
             <div className="mt-6 space-y-5">
               {/* Score summary */}
-              <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-800/30 rounded-xl p-5 border border-purple-500/10">
+              <div className="flex flex-col sm:flex-row items-center gap-6 theme-surface rounded-xl p-5 border theme-border">
                 <ScoreRing score={atsResult.score} />
                 <div className="flex-1 text-center sm:text-left">
                   <p className={`text-lg font-bold ${atsResult.score >= 70 ? 'text-green-400' : atsResult.score >= 45 ? 'text-amber-400' : 'text-red-400'}`}>
                     {atsResult.score >= 70 ? 'Strong match' : atsResult.score >= 45 ? 'Moderate match' : 'Needs improvement'}
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">ATS Compatibility Score</p>
-                  <p className="text-xs text-gray-300 mt-3 leading-relaxed">{atsResult.feedback}</p>
+                  <p className="text-sm theme-muted mt-1">ATS Compatibility Score</p>
+                  <p className="text-xs theme-text-soft mt-3 leading-relaxed">{atsResult.feedback}</p>
                 </div>
               </div>
 
               {/* Matched / Missing */}
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="bg-slate-800/30 rounded-xl p-4 border border-green-500/20">
+                <div className="theme-surface rounded-xl p-4 border border-green-500/20">
                   <div className="flex items-center gap-1.5 mb-3">
                     <CheckCircle2 size={14} className="text-green-400" />
                     <span className="text-sm font-medium text-green-400">Matched ({atsResult.matchedKeywords.length})</span>
@@ -1325,7 +1574,7 @@ export default function ResumeAnalyzerPage() {
                     ))}
                   </div>
                 </div>
-                <div className="bg-slate-800/30 rounded-xl p-4 border border-red-500/20">
+                <div className="theme-surface rounded-xl p-4 border border-red-500/20">
                   <div className="flex items-center gap-1.5 mb-3">
                     <XCircle size={14} className="text-red-400" />
                     <span className="text-sm font-medium text-red-400">Missing ({atsResult.missingKeywords.length})</span>
@@ -1341,8 +1590,8 @@ export default function ResumeAnalyzerPage() {
               </div>
 
               {atsResult.missingKeywords.length > 0 && (
-                <div className="rounded-lg border border-purple-500/20 bg-purple-500/8 p-4 text-xs">
-                  <p className="text-purple-300 font-semibold mb-1 flex items-center gap-1"><Tags size={12} /> Tip</p>
+                <div className="rounded-lg border theme-border bg-purple-500/8 p-4 text-xs">
+                  <p className="text-yellow-400 font-semibold mb-1 flex items-center gap-1"><Tags size={12} /> Tip</p>
                   <p className="text-gray-300 leading-relaxed">
                     Add missing keywords to your <strong className="text-white">Skills</strong> section in the Build tab (if you genuinely have them),
                     then use the <strong className="text-white">Improve</strong> button on experience bullets to weave them in naturally.
@@ -1359,18 +1608,18 @@ export default function ResumeAnalyzerPage() {
       {tab === 'generate' && (
         <div className={card}>
           <div className="flex items-center gap-2 mb-1">
-            <Download size={18} className="text-purple-400" />
-            <h2 className="font-semibold text-white">Download Resume</h2>
+            <Download size={18} className="text-yellow-500" />
+            <h2 className="font-semibold theme-text">Download Resume</h2>
           </div>
-          <p className="text-xs text-gray-400 mb-5">
+          <p className="text-xs theme-muted mb-5">
             Generates a professional A4 resume matching the standard LaTeX format.
             Opens in a new tab — use the purple{' '}
             <strong className="text-white">Download / Print as PDF</strong> button inside.
           </p>
 
           {/* What's included */}
-          <div className="mb-6 rounded-xl border border-purple-500/10 bg-slate-800/30 p-5 space-y-2 text-xs text-gray-400">
-            <p className="font-semibold text-sm text-white mb-3 flex items-center gap-1.5">
+          <div className="mb-6 rounded-xl border theme-border theme-surface p-5 space-y-2 text-xs theme-muted">
+            <p className="font-semibold text-sm theme-text mb-3 flex items-center gap-1.5">
               <Trophy size={15} className="text-amber-400" /> Resume Sections
             </p>
             {[
@@ -1384,7 +1633,7 @@ export default function ResumeAnalyzerPage() {
               'Achievements',
             ].map(item => (
               <div key={item} className="flex items-center gap-2">
-                <CheckCircle2 size={12} className="text-purple-400 shrink-0" />
+                <CheckCircle2 size={12} className="text-yellow-500 shrink-0" />
                 <span>{item}</span>
               </div>
             ))}
@@ -1396,7 +1645,7 @@ export default function ResumeAnalyzerPage() {
           </div>
 
           {/* Live form summary */}
-          <div className="mb-6 rounded-xl border border-purple-500/10 bg-slate-800/30 p-4 text-xs text-gray-400 space-y-1">
+          <div className="mb-6 rounded-xl border theme-border theme-surface p-4 text-xs theme-muted space-y-1">
             <p className="text-white font-semibold mb-2 flex items-center gap-1.5"><Wand2 size={13} /> Current Build Data</p>
             {[
               ['Name', form.name || '—'],
@@ -1418,7 +1667,7 @@ export default function ResumeAnalyzerPage() {
           </div>
 
           <button onClick={handleDownloadResume} disabled={generating}
-            className="w-full flex items-center justify-center gap-2 px-7 py-3 bg-gradient-to-r from-purple-600 to-blue-500 rounded-xl text-sm font-semibold text-white hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-50">
+            className="w-full flex items-center justify-center gap-2 px-7 py-3 bg-[#FACC15] text-[#1F2937] rounded-xl text-sm font-semibold theme-text hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-50">
             {generating ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
             {generating ? 'Generating…' : 'Download Resume'}
           </button>

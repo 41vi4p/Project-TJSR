@@ -12,7 +12,7 @@ const ENGINES = ['auto', 'bs4', 'selenium', 'scrapling', 'crawl4ai', 'newspaper'
 function JobCard({ job }: { job: ExtractedJobResult }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border border-purple-500/20 rounded-lg p-4 bg-slate-800/50">
+    <div className="border theme-border rounded-lg p-4 theme-input">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-white font-medium truncate">{job.title || <span className="text-gray-500 italic">No title extracted</span>}</p>
@@ -20,12 +20,12 @@ function JobCard({ job }: { job: ExtractedJobResult }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {job.job_type && (
-            <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">{job.job_type}</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-yellow-400/15 text-yellow-400">{job.job_type}</span>
           )}
           {job.salary && (
             <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">{job.salary}</span>
           )}
-          <button onClick={() => setOpen(o => !o)} className="text-gray-400 hover:text-white">
+          <button onClick={() => setOpen(o => !o)} className="text-gray-400 hover:text-[var(--text-main)]">
             {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
@@ -40,10 +40,10 @@ function JobCard({ job }: { job: ExtractedJobResult }) {
             </div>
           )}
           {job.apply_link && (
-            <p className="text-xs text-gray-500 font-mono truncate">Apply: {job.apply_link}</p>
+            <p className="text-xs theme-muted font-mono truncate">Apply: {job.apply_link}</p>
           )}
           {job.description && (
-            <p className="text-xs text-gray-400 whitespace-pre-line line-clamp-4">{job.description}</p>
+            <p className="text-xs theme-muted whitespace-pre-line line-clamp-4">{job.description}</p>
           )}
         </div>
       )}
@@ -97,8 +97,8 @@ function ScraperTester() {
   };
 
   return (
-    <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6 mb-8">
-      <h2 className="text-xl font-bold text-white mb-1">Scraper Tester</h2>
+    <div className="brand-card dark-card rounded-lg p-6 mb-8">
+      <h2 className="text-xl font-bold theme-text mb-1">Scraper Tester</h2>
       <p className="text-gray-400 text-sm mb-5">
         Test scraping a URL without saving to the database. Use this to diagnose pipeline issues with any source.
       </p>
@@ -110,12 +110,12 @@ function ScraperTester() {
           placeholder="https://example.com/careers"
           value={url}
           onChange={e => setUrl(e.target.value)}
-          className="flex-1 bg-slate-800 border border-purple-500/20 rounded-lg py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+          className="flex-1 theme-surface border theme-border rounded-lg py-3 px-4 theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:theme-border"
         />
         <select
           value={engine}
           onChange={e => setEngine(e.target.value)}
-          className="bg-slate-800 border border-purple-500/20 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-purple-500/50"
+          className="theme-surface border theme-border rounded-lg py-3 px-4 theme-text focus:outline-none focus:theme-border"
         >
           {ENGINES.map(e => (
             <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>
@@ -124,7 +124,7 @@ function ScraperTester() {
         <button
           onClick={runTest}
           disabled={running || !url.trim() || !!configError}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg theme-text font-medium transition-colors"
         >
           <Play size={16} className={running ? 'animate-pulse' : ''} />
           {running ? 'Running…' : 'Run Test'}
@@ -145,25 +145,25 @@ function ScraperTester() {
             <div className="flex gap-2 mb-1 flex-wrap">
               <button
                 onClick={() => { onConfigChange(NVIDIA_CONFIG); setEngine('phenom'); setUrl('https://jobs.nvidia.com/careers?start=0&location=India&sort_by=distance&filter_include_remote=1'); }}
-                className="text-xs px-2 py-1 rounded bg-slate-700 text-green-300 hover:bg-slate-600"
+                className="text-xs px-2 py-1 rounded [background:var(--card-bg2)] text-green-300 hover:[background:var(--card-bg)]"
               >
                 Load NVIDIA preset
               </button>
               <button
                 onClick={() => { onConfigChange(ORACLE_CONFIG); setEngine('crawl4ai'); setUrl('https://careers.oracle.com/en/sites/jobsearch/jobs?location=India&locationId=300000000106947'); }}
-                className="text-xs px-2 py-1 rounded bg-slate-700 text-purple-300 hover:bg-slate-600"
+                className="text-xs px-2 py-1 rounded [background:var(--card-bg2)] text-yellow-400 hover:[background:var(--card-bg)]"
               >
                 Load Oracle preset
               </button>
               <button
                 onClick={() => { onConfigChange(GOOGLE_CONFIG); setEngine('google_careers'); setUrl('https://www.google.com/about/careers/applications/jobs/results?location=India'); }}
-                className="text-xs px-2 py-1 rounded bg-slate-700 text-blue-300 hover:bg-slate-600"
+                className="text-xs px-2 py-1 rounded [background:var(--card-bg2)] text-blue-300 hover:[background:var(--card-bg)]"
               >
                 Load Google preset
               </button>
               <button
                 onClick={() => onConfigChange('')}
-                className="text-xs px-2 py-1 rounded bg-slate-700 text-gray-400 hover:bg-slate-600"
+                className="text-xs px-2 py-1 rounded [background:var(--card-bg2)] theme-muted hover:[background:var(--card-bg)]"
               >
                 Clear
               </button>
@@ -173,7 +173,7 @@ function ScraperTester() {
               placeholder={'{\n  "wait_for": ".job-list-item",\n  "wait_time": 20,\n  "spa_settle_time": 8\n}'}
               value={configJson}
               onChange={e => onConfigChange(e.target.value)}
-              className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-sm text-white font-mono placeholder-gray-600 focus:outline-none focus:border-purple-500/50 resize-none"
+              className="w-full theme-surface border theme-border rounded-lg py-2 px-3 text-sm theme-text font-mono placeholder-gray-600 focus:outline-none focus:theme-border resize-none"
             />
             {configError && <p className="text-red-400 text-xs mt-1">{configError}</p>}
             <p className="text-gray-600 text-xs mt-1">
@@ -185,7 +185,7 @@ function ScraperTester() {
       </div>
 
       {/* Engine hints */}
-      <div className="text-xs text-gray-500 mb-5 p-3 bg-slate-800/40 rounded-lg border border-purple-500/10 space-y-2">
+      <div className="text-xs theme-muted mb-5 p-3 theme-surface rounded-lg border theme-border space-y-2">
         <div>
           <p className="text-yellow-400 font-medium mb-0.5">NVIDIA / Phenom People Career Sites</p>
           <p>✓ <span className="text-green-300 font-medium">Phenom</span> — dedicated engine: Selenium collects all job URLs across all sidebar pages, then BS4 fetches JSON-LD from each job page. Handles all 173+ jobs automatically.</p>
@@ -193,7 +193,7 @@ function ScraperTester() {
         </div>
         <div>
           <p className="text-yellow-400 font-medium mb-0.5">Oracle Careers</p>
-          <p>✓ <span className="text-purple-300">Crawl4AI</span> or <span className="text-purple-300">Selenium</span> — JS SPA, use <code className="text-gray-400">spa_settle_time: 8</code></p>
+          <p>✓ <span className="text-yellow-400">Crawl4AI</span> or <span className="text-yellow-400">Selenium</span> — JS SPA, use <code className="text-gray-400">spa_settle_time: 8</code></p>
         </div>
         <div>
           <p className="text-yellow-400 font-medium mb-0.5">Google Careers</p>
@@ -220,13 +220,13 @@ function ScraperTester() {
           {/* Summary bar */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { label: 'Engine Used', value: result.engine_used, color: 'text-purple-300' },
+              { label: 'Engine Used', value: result.engine_used, color: 'text-yellow-400' },
               { label: 'Raw Text', value: `${result.raw_text_length.toLocaleString()} chars`, color: 'text-blue-300' },
               { label: 'Links Found', value: result.links_found.toString(), color: 'text-cyan-300' },
               { label: 'Jobs Extracted', value: result.jobs_extracted.length.toString(), color: result.jobs_extracted.length > 0 ? 'text-green-300' : 'text-yellow-300' },
               { label: 'Time', value: `${result.elapsed_seconds}s`, color: 'text-gray-300' },
             ].map(stat => (
-              <div key={stat.label} className="bg-slate-800/60 border border-purple-500/10 rounded-lg p-3 text-center">
+              <div key={stat.label} className="theme-surface border theme-border rounded-lg p-3 text-center">
                 <p className="text-gray-500 text-xs mb-1">{stat.label}</p>
                 <p className={`font-bold text-sm ${stat.color}`}>{stat.value}</p>
               </div>
@@ -272,13 +272,13 @@ function ScraperTester() {
             <div>
               <button
                 onClick={() => setShowRaw(r => !r)}
-                className="text-gray-400 hover:text-white text-sm flex items-center gap-1 mb-2"
+                className="text-gray-400 hover:text-[var(--text-main)] text-sm flex items-center gap-1 mb-2"
               >
                 {showRaw ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {showRaw ? 'Hide' : 'Show'} raw text preview ({result.raw_text_length.toLocaleString()} chars total)
               </button>
               {showRaw && (
-                <pre className="bg-slate-950 border border-purple-500/10 rounded-lg p-4 text-xs text-gray-300 font-mono whitespace-pre-wrap overflow-auto max-h-64">
+                <pre className="[background:var(--card-bg2)] border theme-border rounded-lg p-4 text-xs theme-text-soft font-mono whitespace-pre-wrap overflow-auto max-h-64">
                   {result.raw_text_preview}
                   {result.raw_text_length > 3000 && (
                     <span className="text-gray-600">{'\n\n…[truncated, '}{result.raw_text_length - 3000}{' more chars]'}</span>
@@ -352,12 +352,12 @@ export default function DebugPage() {
     <div className="max-w-7xl">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Debug</h1>
+          <h1 className="text-4xl font-bold theme-text mb-2">Debug</h1>
           <p className="text-gray-400">Test the scraping pipeline and view system logs</p>
         </div>
         <button
           onClick={loadLogs}
-          className="flex items-center space-x-2 px-4 py-2 bg-slate-800 border border-purple-500/20 rounded-lg text-white hover:bg-slate-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 theme-surface border theme-border rounded-lg theme-text hover:bg-[var(--card-bg)] transition-colors"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           <span>Refresh Logs</span>
@@ -368,26 +368,26 @@ export default function DebugPage() {
       <ScraperTester />
 
       {/* Log Controls */}
-      <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
+      <div className="brand-card dark-card rounded-lg p-6 mb-6">
+        <h2 className="text-lg font-semibold theme-text mb-4">
           System Logs
-          {!useMock && <span className="ml-2 text-purple-400 text-sm font-normal">• Live data</span>}
+          {!useMock && <span className="ml-2 text-yellow-500 text-sm font-normal">• Live data</span>}
         </h2>
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-3 theme-muted" size={20} />
             <input
               type="text"
               placeholder="Search logs..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-800 border border-purple-500/20 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+              className="w-full theme-surface border theme-border rounded-lg py-3 pl-10 pr-4 theme-text placeholder:text-[var(--text-muted)] focus:outline-none focus:theme-border transition-colors"
             />
           </div>
           <select
             value={filter}
             onChange={e => setFilter(e.target.value)}
-            className="bg-slate-800 border border-purple-500/20 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+            className="theme-surface border theme-border rounded-lg py-3 px-4 theme-text focus:outline-none focus:theme-border transition-colors"
           >
             <option value="all">All Logs</option>
             <option value="success">Success</option>
@@ -397,7 +397,7 @@ export default function DebugPage() {
           </select>
           <button
             onClick={exportLogs}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-slate-800 border border-purple-500/20 rounded-lg text-white hover:bg-slate-700 transition-colors"
+            className="flex items-center justify-center space-x-2 px-4 py-3 theme-surface border theme-border rounded-lg theme-text hover:bg-[var(--card-bg)] transition-colors"
           >
             <Download size={20} />
             <span className="hidden sm:inline">Export</span>
@@ -406,21 +406,21 @@ export default function DebugPage() {
       </div>
 
       {/* Logs Table */}
-      <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg overflow-hidden">
+      <div className="brand-card dark-card rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-purple-500/10">
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Timestamp</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Type</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Source</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Message</th>
+              <tr className="border-b theme-border">
+                <th className="px-6 py-4 text-left text-sm font-semibold theme-text-soft">Timestamp</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold theme-text-soft">Type</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold theme-text-soft">Source</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold theme-text-soft">Message</th>
               </tr>
             </thead>
             <tbody>
               {displayLogs.map((log, i) => (
-                <tr key={i} className="border-b border-purple-500/10 hover:bg-slate-800/50 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-400 font-mono whitespace-nowrap">
+                <tr key={i} className="border-b theme-border hover:theme-input transition-colors">
+                  <td className="px-6 py-4 text-sm theme-muted font-mono whitespace-nowrap">
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 text-sm">
@@ -433,8 +433,8 @@ export default function DebugPage() {
                       {log.type.charAt(0).toUpperCase() + log.type.slice(1)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">{log.source}</td>
-                  <td className="px-6 py-4 text-sm text-gray-300">{log.message}</td>
+                  <td className="px-6 py-4 text-sm theme-muted">{log.source}</td>
+                  <td className="px-6 py-4 text-sm theme-text-soft">{log.message}</td>
                 </tr>
               ))}
             </tbody>
@@ -455,7 +455,7 @@ export default function DebugPage() {
           { label: 'Errors', value: logCounts.error, color: 'text-red-400' },
           { label: 'Warnings', value: logCounts.warning, color: 'text-yellow-400' },
         ].map(stat => (
-          <div key={stat.label} className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-4">
+          <div key={stat.label} className="brand-card dark-card rounded-lg p-4">
             <p className="text-gray-400 text-sm mb-2">{stat.label}</p>
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
           </div>

@@ -1,152 +1,299 @@
 'use client';
 
-import { Bell, Search, Settings, LogOut } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  Bell, Search, Settings, LogOut, ChevronDown,
+  Menu, X, Zap, FileText, Bug, Home, Briefcase,
+  Sun, Moon, MessageSquare, Network, BotMessageSquare,
+} from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useTheme } from '@/lib/theme-context';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+const primaryNavItems = [
+  { label: 'Dashboard', href: '/dashboard',          icon: Home },
+  { label: 'Jobs',      href: '/dashboard/jobs',     icon: Briefcase },
+  { label: 'Resume',    href: '/dashboard/resume',   icon: FileText },
+];
+
+const toolsItems = [
+  { label: 'AI Chat',        href: '/dashboard/chat',     icon: BotMessageSquare },
+  { label: 'Bot Control',    href: '/dashboard/bot',      icon: MessageSquare },
+  { label: 'Knowledge Graph',href: '/dashboard/graph',    icon: Network },
+  { label: 'Scraper Control',href: '/dashboard/scraper',  icon: Zap },
+  { label: 'Debug Logs',     href: '/dashboard/debug',    icon: Bug },
+  { label: 'Settings',       href: '/dashboard/settings', icon: Settings },
+];
+
+import { useSidebar } from '@/lib/sidebar-context';
 
 export function Topbar() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [notifications, setNotifications] = useState(3);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const { user }          = useAuth();
+  const { theme, toggle } = useTheme();
+  const { collapsed }     = useSidebar();
+  const router            = useRouter();
+  const pathname          = usePathname();
+  const isDark            = theme === 'dark';
+
+  const [showNotif,    setShowNotif]    = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showTools,    setShowTools]    = useState(false);
+
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      if (!user) return [];
+      const token = await (user as any).getIdToken?.();
+      const resp = await fetch(`${BACKEND_URL}/api/v1/notifications`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) return [];
+      return resp.json();
+    },
+    refetchInterval: 30000,
+    enabled: !!user,
+  });
+
+  const unreadCount = (notifications as any[]).filter((n) => !n.is_read).length;
+
+  const markAllRead = useMutation({
+    mutationFn: async () => {
+      const token = await (user as any)?.getIdToken?.();
+      await fetch(`${BACKEND_URL}/api/v1/notifications/mark-all-read`, {
+        method: 'PUT',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      const token = await (user as any)?.getIdToken?.();
+      await fetch(`${BACKEND_URL}/api/v1/notifications/${id}/read`, {
+        method: 'PUT',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef    = useRef<HTMLDivElement>(null);
+  const toolsRef    = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setShowUserMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
+      if (notifRef.current    && !notifRef.current.contains(e.target as Node))    setShowNotif(false);
+      if (toolsRef.current    && !toolsRef.current.contains(e.target as Node))    setShowTools(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleSignOut = async () => {
-    await signOut(auth);
-    router.push('/auth');
-  };
+  const handleSignOut = async () => { await signOut(auth); router.push('/auth'); };
 
   const initials = user?.displayName
-    ? user.displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    ? user.displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() ?? 'U';
 
+  const isActive = (href: string) => pathname === href;
+
+  const navBg    = 'var(--nav-bg)';
+  const navBrd   = 'var(--nav-border)';
+  const cardBg   = 'var(--card-bg)';
+  const inputBg  = 'var(--input-bg)';
+  const brd      = 'var(--border)';
+  const txtMain  = 'var(--text-main)';
+  const txtMuted = 'var(--text-muted)';
+
   return (
-    <div className="fixed top-0 right-0 left-0 md:left-64 h-16 bg-slate-950/80 border-b border-purple-500/10 backdrop-blur-md z-20 px-4 md:px-8 flex items-center justify-between">
-      {/* Search Bar */}
-      <div className="hidden md:flex flex-1 max-w-md">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search jobs, companies..."
-            className="w-full bg-slate-900 border border-purple-500/20 rounded-lg py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 smooth-transition text-sm"
-          />
+    <>
+      {/* ── TOPBAR ── */}
+      <nav className={`fixed top-0 right-0 h-16 z-40 px-4 md:px-6 flex items-center gap-3
+                      backdrop-blur-xl border-b shadow-sm transition-all duration-300
+                      ${collapsed ? 'left-0 md:left-16' : 'left-0 md:left-64'}`}
+           style={{ backgroundColor: navBg, borderColor: navBrd }}>
+
+        {/* Logo */}
+        <Link href="/dashboard" className="flex-shrink-0 mr-2">
+          <Image src="/TJSR.png" alt="TJSR" width={120} height={36} className="h-8 w-auto object-contain" priority />
+        </Link>
+
+        {/* Search */}
+        <div className="hidden md:flex flex-1 max-w-xs">
+          <div className="relative w-full">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: txtMuted }} />
+            <input
+              type="text"
+              placeholder="Search jobs, companies…"
+              className="w-full h-9 rounded-xl pl-9 pr-4 text-sm focus:outline-none
+                         focus:ring-2 focus:ring-yellow-300/40 transition-all duration-200"
+              style={{ backgroundColor: inputBg, border: `1px solid ${brd}`, color: txtMain }}
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Right Section */}
-      <div className="flex items-center space-x-4 md:space-x-6">
-        {/* Notifications */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 rounded-lg hover:bg-slate-900 smooth-transition text-gray-400 hover:text-white"
-          >
-            <Bell size={20} />
-            {notifications > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-purple-500/20 rounded-lg shadow-lg p-4 z-50">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-white font-semibold">Notifications</h3>
-                <button
-                  onClick={() => { setNotifications(0); setShowNotifications(false); }}
-                  className="text-gray-400 hover:text-white text-sm"
-                >
-                  Clear all
-                </button>
-              </div>
-              {notifications > 0 ? (
-                <div className="space-y-3">
-                  <div className="p-3 bg-slate-800 rounded border border-purple-500/20">
-                    <p className="text-sm text-gray-200">New job match: Senior React Developer at TechCorp</p>
-                    <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
-                  </div>
-                  <div className="p-3 bg-slate-800 rounded border border-purple-500/20">
-                    <p className="text-sm text-gray-200">Application status updated for Startup Inc</p>
-                    <p className="text-xs text-gray-500 mt-1">5 hours ago</p>
-                  </div>
-                  <div className="p-3 bg-slate-800 rounded border border-purple-500/20">
-                    <p className="text-sm text-gray-200">Scraper completed: 45 new jobs found</p>
-                    <p className="text-xs text-gray-500 mt-1">1 day ago</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-gray-400 text-sm">No notifications</p>
+        {/* Desktop nav */}
+        <div className="hidden md:flex items-center gap-0.5 ml-auto">
+          {primaryNavItems.map(item => (
+            <Link key={item.href} href={item.href}
+              className={`relative px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
+                isActive(item.href) ? 'bg-yellow-100/20' : 'hover:bg-yellow-100/10'
+              }`}
+              style={{ color: isActive(item.href) ? '#FACC15' : txtMuted }}>
+              {isActive(item.href) && (
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-yellow-400 rounded-full" />
               )}
-            </div>
-          )}
-        </div>
+              {item.label}
+            </Link>
+          ))}
 
-        {/* User Profile */}
-        <div className="relative" ref={userMenuRef}>
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center space-x-2 rounded-lg hover:bg-slate-900 smooth-transition p-1"
-          >
-            {user?.photoURL ? (
-              <Image
-                src={user.photoURL}
-                alt={user.displayName ?? 'Profile'}
-                width={36}
-                height={36}
-                className="rounded-full ring-2 ring-purple-500/40"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold ring-2 ring-purple-500/40">
-                {initials}
+          {/* Tools dropdown */}
+          <div className="relative" ref={toolsRef}>
+            <button onClick={() => setShowTools(v => !v)}
+              className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium
+                         hover:bg-yellow-100/10 transition-all duration-150"
+              style={{ color: txtMuted }}>
+              Tools
+              <ChevronDown size={12} className={`transition-transform duration-200 ${showTools ? 'rotate-180' : ''}`} />
+            </button>
+            {showTools && (
+              <div className="absolute right-0 mt-2 w-52 rounded-2xl py-2 z-50 shadow-xl animate-slide-up"
+                   style={{ backgroundColor: cardBg, border: `1px solid ${brd}` }}>
+                {toolsItems.map(item => {
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.href} href={item.href} onClick={() => setShowTools(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 mx-1.5 rounded-xl text-sm
+                                 transition-colors hover:bg-yellow-100/10"
+                      style={{ color: txtMain }}>
+                      <Icon size={14} style={{ color: txtMuted }} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Right actions */}
+        <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+
+          {/* Dark mode toggle */}
+          <button onClick={toggle}
+            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-yellow-100/10 transition-all duration-150"
+            style={{ color: txtMuted }}
+            title={isDark ? 'Light mode' : 'Dark mode'}>
+            {isDark ? <Sun size={17} className="text-yellow-400" /> : <Moon size={17} />}
           </button>
 
-          {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-purple-500/20 rounded-lg shadow-lg z-50 overflow-hidden">
-              {/* User info */}
-              <div className="px-4 py-3 border-b border-purple-500/10">
-                <p className="text-white font-medium text-sm truncate">{user?.displayName ?? 'User'}</p>
-                <p className="text-gray-400 text-xs truncate">{user?.email}</p>
+          {/* Notifications */}
+          <div className="relative" ref={notifRef}>
+            <button onClick={() => setShowNotif(v => !v)}
+              className="relative w-9 h-9 flex items-center justify-center rounded-xl
+                         hover:bg-yellow-100/10 transition-all duration-150"
+              style={{ color: txtMuted }}>
+              <Bell size={17} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-yellow-400 rounded-full" />
+              )}
+            </button>
+            {showNotif && (
+              <div className="absolute right-0 mt-2.5 w-[340px] rounded-2xl z-50 shadow-xl animate-slide-up overflow-hidden"
+                   style={{ backgroundColor: cardBg, border: `1px solid ${brd}` }}>
+                <div className="px-4 pt-4 pb-3 flex items-center justify-between"
+                     style={{ borderBottom: `1px solid ${brd}` }}>
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: txtMain }}>Notifications</h3>
+                    <p className="text-xs mt-0.5" style={{ color: txtMuted }}>{unreadCount} unread</p>
+                  </div>
+                  <button onClick={() => markAllRead.mutate()}
+                    className="text-xs font-medium px-2.5 py-1 rounded-lg hover:bg-yellow-100/10 transition-colors"
+                    style={{ color: '#FACC15' }}>
+                    Mark all read
+                  </button>
+                </div>
+                <div className="p-2 space-y-0.5 max-h-[340px] overflow-y-auto">
+                  {(notifications as any[]).length > 0 ? (
+                    (notifications as any[]).map((n) => (
+                      <div key={n.id}
+                           onClick={() => { if (!n.is_read) markRead.mutate(n.id); }}
+                           className="flex items-start gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-yellow-100/10">
+                        <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.is_read ? 'bg-gray-300' : 'bg-yellow-400'}`} />
+                        <div>
+                          <p className={`text-sm leading-snug ${n.is_read ? '' : 'font-medium'}`}
+                             style={{ color: n.is_read ? txtMuted : txtMain }}>
+                            {n.title}: {n.message}
+                          </p>
+                          <p className="text-[10px] mt-1" style={{ color: txtMuted }}>
+                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center text-xs" style={{ color: txtMuted }}>No notifications yet</div>
+                  )}
+                </div>
               </div>
-              <div className="py-1">
-                <Link
-                  href="/dashboard/settings"
-                  onClick={() => setShowUserMenu(false)}
-                  className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-slate-800 smooth-transition text-sm"
-                >
-                  <Settings size={16} />
-                  <span>Settings</span>
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="w-full flex items-center space-x-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-slate-800 smooth-transition text-sm"
-                >
-                  <LogOut size={16} />
-                  <span>Sign out</span>
-                </button>
+            )}
+          </div>
+
+          {/* User menu */}
+          <div className="relative" ref={userMenuRef}>
+            <button onClick={() => setShowUserMenu(v => !v)}
+              className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-yellow-100/10 transition-all duration-150">
+              {user?.photoURL ? (
+                <Image src={user.photoURL} alt={user.displayName ?? 'Profile'}
+                  width={30} height={30} className="rounded-full ring-2 ring-yellow-400/40"
+                  referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center select-none"
+                     style={{ backgroundColor: '#FFF3C4', color: '#B45309' }}>
+                  {initials}
+                </div>
+              )}
+              <ChevronDown size={12} className="hidden md:block" style={{ color: txtMuted }} />
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2.5 w-60 rounded-2xl z-50 shadow-xl overflow-hidden animate-slide-up"
+                   style={{ backgroundColor: cardBg, border: `1px solid ${brd}` }}>
+                <div className="px-4 py-3.5" style={{ borderBottom: `1px solid ${brd}` }}>
+                  <p className="text-sm font-semibold truncate" style={{ color: txtMain }}>{user?.displayName ?? 'User'}</p>
+                  <p className="text-xs mt-0.5 truncate" style={{ color: txtMuted }}>{user?.email}</p>
+                </div>
+                <div className="p-1.5">
+                  <Link href="/dashboard/settings" onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl hover:bg-yellow-100/10 transition-colors"
+                    style={{ color: txtMain }}>
+                    <Settings size={14} style={{ color: txtMuted }} />
+                    Settings
+                  </Link>
+                  <button onClick={handleSignOut}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl text-red-400 hover:bg-red-500/10 transition-colors">
+                    <LogOut size={14} />
+                    Sign out
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Mobile hamburger hidden — bottom bar handles mobile nav */}
         </div>
-      </div>
-    </div>
+      </nav>
+    </>
   );
 }

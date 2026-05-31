@@ -19,13 +19,19 @@ class Settings(BaseSettings):
     # Qdrant
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
+    qdrant_api_key: str = ""
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Ollama
+    # Ollama / LLM
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen3:latest"
+
+    # Featherless (optional cloud LLM)
+    featherless_api_url: str = "https://api.featherless.ai/v1"
+    featherless_api_key: str = ""
+    featherless_model: str = "Qwen/Qwen3-8B"
 
     # Celery
     celery_broker_url: str = "redis://localhost:6379/1"
@@ -37,9 +43,11 @@ class Settings(BaseSettings):
     # Firebase
     firebase_service_account_key: str = "../firebase-service-account.json"
     firebase_project_id: str = ""
+    firebase_storage_bucket: str = ""
 
     # Telegram
     telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     # Frontend
     frontend_url: str = "http://localhost:3000"

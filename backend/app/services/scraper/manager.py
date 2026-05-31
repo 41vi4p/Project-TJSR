@@ -19,6 +19,9 @@ from app.services.scraper.crawl4ai_scraper import Crawl4AIScraper
 from app.services.scraper.newspaper_scraper import NewspaperScraper
 from app.services.scraper.phenom_scraper import PhenomScraper
 from app.services.scraper.google_careers_scraper import GoogleCareersScraper
+from app.services.scraper.playwright_scraper import PlaywrightScraper
+from app.services.scraper.rss_scraper import RSSFeedScraper
+from app.services.scraper.sitemap_scraper import SitemapScraper
 from app.services.scraper.nlp_extractor import extract_jobs_from_content
 
 logger = logging.getLogger(__name__)
@@ -35,10 +38,13 @@ class ScraperManager:
         "newspaper": NewspaperScraper,
         "phenom": PhenomScraper,
         "google_careers": GoogleCareersScraper,
+        "playwright": PlaywrightScraper,
+        "rss": RSSFeedScraper,
+        "sitemap": SitemapScraper,
     }
 
     # Order to try engines when auto-selecting
-    ENGINE_PRIORITY = ["bs4", "scrapling", "crawl4ai", "selenium", "newspaper"]
+    ENGINE_PRIORITY = ["bs4", "scrapling", "playwright", "crawl4ai", "selenium", "newspaper"]
 
     def __init__(self):
         self.engines = {}
@@ -147,13 +153,24 @@ class ScraperManager:
                 if not job_data.title:
                     continue
 
-                # Check for duplicate by title + company
-                existing = session.execute(
-                    select(Job).where(
-                        Job.title == job_data.title,
-                        Job.company == job_data.company,
-                    )
-                ).scalar_one_or_none()
+                # Check for duplicate by apply_link first, then title+company
+                apply_link = job_data.apply_link or config.source_url
+                if apply_link and apply_link != config.source_url:
+                    existing = session.execute(
+                        select(Job).where(Job.apply_link == apply_link)
+                    ).scalar_one_or_none()
+                else:
+                    # Fuzzy dedup: pg_trgm similarity on normalized title+company
+                    from sqlalchemy import text as sql_text
+                    norm_title   = job_data.title.lower().strip()
+                    norm_company = (job_data.company or config.source_name or "").lower().strip()
+                    dup = session.execute(sql_text(
+                        "SELECT id FROM jobs WHERE "
+                        "similarity(lower(title), :t) > 0.8 AND "
+                        "similarity(lower(company), :c) > 0.7 "
+                        "LIMIT 1"
+                    ), {"t": norm_title, "c": norm_company}).fetchone()
+                    existing = dup
 
                 if existing:
                     continue
@@ -166,10 +183,11 @@ class ScraperManager:
                     skills=job_data.skills,
                     job_type=job_data.job_type,
                     salary=job_data.salary,
-                    apply_link=job_data.apply_link or config.source_url,
+                    apply_link=apply_link,
                     source_url=content.url or config.source_url,
                     source_name=config.source_name or config.source_type,
                     raw_content=content.text[:10000],
+                    date_posted=self._parse_date(job_data.date_posted) or datetime.now(timezone.utc),
                 )
                 session.add(job)
                 jobs_created.append(job)
@@ -187,32 +205,66 @@ class ScraperManager:
         return jobs_created
 
     def _fetch_content(self, config: ScraperConfig) -> list[RawContent]:
-        """Fetch content using the appropriate engine(s)."""
-        engine_name = config.scraper_engine
+        """Fetch content using the appropriate engine(s) with retry/backoff."""
+        import time
+
+        engine_name  = config.scraper_engine
         extra_config = config.config_json or {}
+        max_retries  = 3
+        backoff      = 2  # seconds, doubles each retry
+
+        def _try(name: str) -> list[RawContent]:
+            engine = self._get_engine(name)
+            if not engine:
+                return []
+            last_err = None
+            delay = backoff
+            for attempt in range(1, max_retries + 1):
+                try:
+                    results = engine.scrape(config.source_url, extra_config)
+                    if results:
+                        return results
+                    return []  # empty but not an error — don't retry
+                except Exception as e:
+                    last_err = e
+                    if attempt < max_retries:
+                        logger.warning(f"[{name}] attempt {attempt} failed for {config.source_url}: {e} — retrying in {delay}s")
+                        time.sleep(delay)
+                        delay *= 2
+            logger.error(f"[{name}] all {max_retries} attempts failed for {config.source_url}: {last_err}")
+            return []
 
         if engine_name != "auto":
-            engine = self._get_engine(engine_name)
-            if engine:
-                return engine.scrape(config.source_url, extra_config)
-            logger.warning(f"Engine {engine_name} not found, falling back to auto")
+            results = _try(engine_name)
+            if results or engine_name not in ("bs4", "scrapling"):
+                return results
+            logger.warning(f"Engine {engine_name} returned nothing, falling back to auto")
 
         # Auto mode: try engines in priority order
         for name in self.ENGINE_PRIORITY:
-            engine = self._get_engine(name)
-            if not engine:
-                continue
-            try:
-                results = engine.scrape(config.source_url, extra_config)
-                if results:
-                    logger.info(f"Auto-selected engine: {name} for {config.source_url}")
-                    return results
-            except Exception as e:
-                logger.warning(f"Engine {name} failed for {config.source_url}: {e}")
-                continue
+            if engine_name != "auto" and name == engine_name:
+                continue  # already tried
+            results = _try(name)
+            if results:
+                logger.info(f"Auto-selected engine: {name} for {config.source_url}")
+                return results
 
         logger.error(f"All engines failed for {config.source_url}")
         return []
+
+    @staticmethod
+    def _parse_date(date_str: str) -> "datetime | None":
+        """Parse ISO 8601 date string from JSON-LD datePosted."""
+        if not date_str:
+            return None
+        from datetime import datetime, timezone
+        for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(date_str[:19], fmt[:len(date_str[:19])])
+                return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+            except ValueError:
+                continue
+        return None
 
     def _update_progress(self, user_id: str, data: dict):
         """Update scraper progress in Redis for WebSocket consumers."""

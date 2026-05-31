@@ -66,7 +66,7 @@ export default function BotPage() {
   return (
     <div className="max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Telegram Bot Control</h1>
+        <h1 className="text-4xl font-bold theme-text mb-2">Telegram Bot Control</h1>
         <p className="text-gray-400">Manage your daily job digest and bot settings</p>
       </div>
 
@@ -91,14 +91,14 @@ export default function BotPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Settings */}
-        <div className="lg:col-span-2 bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-          <h2 className="text-2xl font-bold text-white mb-6">Bot Settings</h2>
+        <div className="lg:col-span-2 brand-card dark-card rounded-lg p-6">
+          <h2 className="text-2xl font-bold theme-text mb-6">Bot Settings</h2>
 
           <div className="space-y-6">
             {/* Daily Digest Toggle */}
-            <div className="border-b border-purple-500/10 pb-6">
+            <div className="border-b theme-border pb-6">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-white">Daily Digest</h3>
+                <h3 className="text-lg font-semibold theme-text">Daily Digest</h3>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
@@ -106,15 +106,15 @@ export default function BotPage() {
                     checked={digestEnabled}
                     onChange={e => setDigestEnabled(e.target.checked)}
                   />
-                  <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
+                  <div className="w-11 h-6 [background:var(--card-bg2)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-400" />
                 </label>
               </div>
               <p className="text-gray-400 text-sm">Receive matching jobs every morning via Telegram</p>
             </div>
 
             {/* Delivery Time */}
-            <div className="border-b border-purple-500/10 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+            <div className="border-b theme-border pb-6">
+              <h3 className="text-lg font-semibold theme-text mb-4 flex items-center space-x-2">
                 <Clock size={20} />
                 <span>Delivery Time</span>
               </h3>
@@ -122,13 +122,13 @@ export default function BotPage() {
                 type="time"
                 value={digestTime}
                 onChange={e => setDigestTime(e.target.value)}
-                className="bg-slate-800 border border-purple-500/20 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-purple-500/50"
+                className="theme-surface border theme-border rounded-lg py-2 px-3 theme-text focus:outline-none focus:theme-border"
               />
             </div>
 
             {/* Notification Preferences */}
-            <div className="border-b border-purple-500/10 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Notification Preferences</h3>
+            <div className="border-b theme-border pb-6">
+              <h3 className="text-lg font-semibold theme-text mb-4">Notification Preferences</h3>
               <div className="space-y-3">
                 {[
                   { key: 'new_matching_jobs', label: 'New matching jobs' },
@@ -139,7 +139,7 @@ export default function BotPage() {
                   <label key={key} className="flex items-center space-x-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded border-purple-500/20 bg-slate-800 accent-purple-600"
+                      className="w-4 h-4 rounded theme-border theme-surface accent-purple-600"
                       checked={notifPrefs[key as keyof typeof notifPrefs]}
                       onChange={e => setNotifPrefs(prev => ({ ...prev, [key]: e.target.checked }))}
                     />
@@ -151,7 +151,7 @@ export default function BotPage() {
 
             {/* Commands */}
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Available Commands</h3>
+              <h3 className="text-lg font-semibold theme-text mb-4">Available Commands</h3>
               <div className="space-y-2 text-sm">
                 {[
                   { cmd: '/jobs', desc: 'Browse latest matching jobs with inline navigation' },
@@ -159,8 +159,8 @@ export default function BotPage() {
                   { cmd: '/search <query>', desc: 'Search jobs by keywords' },
                   { cmd: '/settings', desc: 'Adjust bot preferences' },
                 ].map(item => (
-                  <div key={item.cmd} className="flex items-start space-x-3 p-3 bg-slate-800/50 rounded-lg">
-                    <code className="text-purple-400 font-mono font-semibold whitespace-nowrap">{item.cmd}</code>
+                  <div key={item.cmd} className="flex items-start space-x-3 p-3 theme-input rounded-lg">
+                    <code className="text-yellow-500 font-mono font-semibold whitespace-nowrap">{item.cmd}</code>
                     <span className="text-gray-400">{item.desc}</span>
                   </div>
                 ))}
@@ -170,7 +170,7 @@ export default function BotPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg py-3 text-white font-semibold hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-60"
+              className="w-full flex items-center justify-center space-x-2 bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-60"
             >
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
               <span>{saving ? 'Saving...' : 'Save Settings'}</span>
@@ -179,8 +179,8 @@ export default function BotPage() {
         </div>
 
         {/* Bot Status */}
-        <div className="bg-slate-900/50 border border-purple-500/20 rounded-lg p-6">
-          <h2 className="text-lg font-bold text-white mb-6">Bot Status</h2>
+        <div className="brand-card dark-card rounded-lg p-6">
+          <h2 className="text-lg font-bold theme-text mb-6">Bot Status</h2>
 
           <div className="space-y-4">
             {isConnected ? (
@@ -202,7 +202,7 @@ export default function BotPage() {
             )}
 
             {botStatus?.telegram_chat_id && (
-              <div className="border border-purple-500/20 rounded-lg p-4">
+              <div className="border theme-border rounded-lg p-4">
                 <p className="text-gray-300 text-sm font-semibold mb-1">Chat ID:</p>
                 <p className="text-gray-400 font-mono text-xs">{botStatus.telegram_chat_id}</p>
               </div>
@@ -213,7 +213,7 @@ export default function BotPage() {
                 href={`https://t.me/${botUsername}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg py-3 text-white font-semibold hover:shadow-lg glow-purple-hover smooth-transition"
+                className="w-full flex items-center justify-center space-x-2 bg-[#FACC15] text-[#1F2937] rounded-lg py-3 theme-text font-semibold hover:shadow-lg dark-card-hover smooth-transition"
               >
                 <ExternalLink size={18} />
                 <span>Open @{botUsername}</span>
@@ -221,9 +221,9 @@ export default function BotPage() {
             )}
 
             {!isConnected && (
-              <div className="border border-purple-500/20 rounded-lg p-4">
+              <div className="border theme-border rounded-lg p-4">
                 <p className="text-gray-300 text-sm mb-3">
-                  To connect: open the Telegram bot and send <code className="text-purple-400">/start</code>. A link code will be generated in the bot chat.
+                  To connect: open the Telegram bot and send <code className="text-yellow-500">/start</code>. A link code will be generated in the bot chat.
                 </p>
               </div>
             )}

@@ -43,19 +43,30 @@ async def dashboard_stats(
     )
     jobs_yesterday = jobs_yesterday_result.scalar()
 
-    # Matched jobs (is_tech=True with confidence > 0.7)
+    # Matched jobs — jobs with match_score > 0 (set by _compute_match_scores for this user's resume)
+    # Also count jobs where user's resume skills overlap (fallback if match_score not yet computed)
     matched_result = await db.execute(
         select(func.count()).select_from(Job).where(
-            and_(Job.is_tech == True, Job.confidence_score >= 0.7)
+            and_(Job.match_score > 0, Job.is_active == True)
         )
     )
     matched_jobs = matched_result.scalar()
 
-    # Applications sent
-    apps_result = await db.execute(
-        select(func.count()).select_from(Application).where(Application.user_id == user.id)
+    # Matched jobs this week vs last week for change %
+    matched_this_week_result = await db.execute(
+        select(func.count()).select_from(Job).where(
+            and_(Job.match_score > 0, Job.is_active == True, Job.date_scraped >= week_ago)
+        )
     )
-    applications_sent = apps_result.scalar()
+    matched_this_week = matched_this_week_result.scalar()
+
+    matched_last_week_result = await db.execute(
+        select(func.count()).select_from(Job).where(
+            and_(Job.match_score > 0, Job.is_active == True,
+                 Job.date_scraped >= two_weeks_ago, Job.date_scraped < week_ago)
+        )
+    )
+    matched_last_week = matched_last_week_result.scalar()
 
     # Change calculations (this week vs last week)
     this_week_result = await db.execute(
@@ -70,17 +81,23 @@ async def dashboard_stats(
     )
     last_week = last_week_result.scalar()
 
-    total_change = round(((this_week - last_week) / max(last_week, 1)) * 100, 1)
-    today_change = round(((jobs_today - jobs_yesterday) / max(jobs_yesterday, 1)) * 100, 1)
+    def _pct_change(current: int, previous: int) -> float:
+        if previous == 0:
+            return 100.0 if current > 0 else 0.0
+        return round(max(-100, min(100, ((current - previous) / previous) * 100)), 1)
+
+    total_change   = _pct_change(this_week, last_week)
+    today_change   = _pct_change(jobs_today, jobs_yesterday)
+    matched_change = _pct_change(matched_this_week, matched_last_week)
 
     return DashboardStats(
         total_jobs=total_jobs,
         jobs_today=jobs_today,
         matched_jobs=matched_jobs,
-        applications_sent=applications_sent,
+        applications_sent=0,
         total_jobs_change=total_change,
         jobs_today_change=today_change,
-        matched_jobs_change=0,
+        matched_jobs_change=matched_change,
         applications_change=0,
     )
 

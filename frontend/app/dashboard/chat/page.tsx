@@ -131,10 +131,10 @@ export default function ChatPage() {
       {/* Header */}
       <div className="mb-4 flex-shrink-0">
         <div className="flex items-center space-x-3 mb-1">
-          <div className="p-2 bg-purple-600/20 rounded-lg border border-purple-500/30">
-            <Sparkles size={20} className="text-purple-400" />
+          <div className="p-2 bg-yellow-400/15 rounded-lg border theme-border">
+            <Sparkles size={20} className="text-yellow-500" />
           </div>
-          <h1 className="text-3xl font-bold text-white">AI Job Assistant</h1>
+          <h1 className="text-3xl font-bold theme-text">AI Job Assistant</h1>
         </div>
         <p className="text-gray-400 text-sm ml-14">
           Powered by Ollama (local) • RAG-enabled with your job database
@@ -148,11 +148,11 @@ export default function ChatPage() {
             {/* Avatar */}
             <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
               msg.role === 'assistant'
-                ? 'bg-purple-600/30 border border-purple-500/40'
+                ? 'bg-yellow-400/20 border theme-border'
                 : 'bg-blue-600/30 border border-blue-500/40'
             }`}>
               {msg.role === 'assistant'
-                ? <Bot size={16} className="text-purple-400" />
+                ? <Bot size={16} className="text-yellow-500" />
                 : <User size={16} className="text-blue-400" />
               }
             </div>
@@ -161,11 +161,11 @@ export default function ChatPage() {
             <div className={`max-w-[80%] space-y-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
               <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-gradient-to-br from-purple-600/40 to-blue-600/30 border border-purple-500/30 text-white rounded-tr-sm'
-                  : 'bg-slate-900/80 border border-purple-500/10 text-gray-200 rounded-tl-sm'
+                  ? 'bg-gradient-to-br from-purple-600/40 to-blue-600/30 border theme-border theme-text rounded-tr-sm'
+                  : '[background:var(--nav-bg)] border theme-border text-gray-200 rounded-tl-sm'
               }`}>
                 {msg.streaming && !msg.content
-                  ? <Loader2 size={14} className="animate-spin text-purple-400" />
+                  ? <Loader2 size={14} className="animate-spin text-yellow-500" />
                   : msg.role === 'assistant'
                     ? (
                       <ReactMarkdown
@@ -180,19 +180,19 @@ export default function ChatPage() {
                           code: ({ children, className }) => {
                             const isBlock = className?.includes('language-');
                             return isBlock
-                              ? <code className="block bg-slate-800 rounded-md p-3 mt-2 mb-2 text-xs font-mono text-green-300 overflow-x-auto whitespace-pre">{children}</code>
-                              : <code className="bg-slate-800 rounded px-1.5 py-0.5 text-xs font-mono text-purple-300">{children}</code>;
+                              ? <code className="block theme-surface rounded-md p-3 mt-2 mb-2 text-xs font-mono text-green-300 overflow-x-auto whitespace-pre">{children}</code>
+                              : <code className="theme-surface rounded px-1.5 py-0.5 text-xs font-mono text-yellow-400">{children}</code>;
                           },
                           pre: ({ children }) => <pre className="mb-2">{children}</pre>,
-                          h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-base font-semibold text-white mb-2">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-1">{children}</h3>,
-                          a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline">{children}</a>,
-                          blockquote: ({ children }) => <blockquote className="border-l-2 border-purple-500/40 pl-3 text-gray-400 italic my-2">{children}</blockquote>,
+                          h1: ({ children }) => <h1 className="text-lg font-bold theme-text mb-2">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-semibold theme-text mb-2">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-semibold theme-text mb-1">{children}</h3>,
+                          a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-400 underline">{children}</a>,
+                          blockquote: ({ children }) => <blockquote className="border-l-2 theme-border pl-3 theme-muted italic my-2">{children}</blockquote>,
                           hr: () => <hr className="border-slate-700 my-3" />,
                           table: ({ children }) => <table className="text-xs border-collapse w-full my-2">{children}</table>,
-                          th: ({ children }) => <th className="border border-slate-700 px-2 py-1 text-purple-300 text-left">{children}</th>,
-                          td: ({ children }) => <td className="border border-slate-700 px-2 py-1 text-gray-300">{children}</td>,
+                          th: ({ children }) => <th className="border border-slate-700 px-2 py-1 text-yellow-400 text-left">{children}</th>,
+                          td: ({ children }) => <td className="border border-slate-700 px-2 py-1 theme-text-soft">{children}</td>,
                         }}
                       >
                         {msg.content}
@@ -205,11 +205,11 @@ export default function ChatPage() {
               {/* Sources */}
               {msg.sources && msg.sources.length > 0 && (
                 <div className="w-full space-y-1">
-                  <p className="text-xs text-gray-500 ml-1">Sources</p>
+                  <p className="text-xs theme-muted ml-1">Sources</p>
                   {msg.sources.map(s => (
-                    <div key={s.job_id} className="bg-slate-800/50 border border-purple-500/10 rounded-lg px-3 py-2">
-                      <p className="text-xs font-medium text-purple-300">{s.title}</p>
-                      <p className="text-xs text-gray-500">{s.company} • {Math.round(s.relevance_score * 100)}% match</p>
+                    <div key={s.job_id} className="theme-surface rounded-lg px-3 py-2">
+                      <p className="text-xs font-medium text-yellow-400">{s.title}</p>
+                      <p className="text-xs theme-muted">{s.company} • {Math.round(s.relevance_score * 100)}% match</p>
                     </div>
                   ))}
                 </div>
@@ -231,7 +231,7 @@ export default function ChatPage() {
             <button
               key={s}
               onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-2 bg-slate-900/60 border border-purple-500/20 rounded-full text-gray-300 hover:text-white hover:border-purple-500/40 smooth-transition"
+              className="text-xs px-3 py-2 [background:var(--card-bg2)] border theme-border rounded-full theme-text-soft hover:text-[var(--text-main)] hover:theme-border smooth-transition"
             >
               {s}
             </button>
@@ -240,14 +240,14 @@ export default function ChatPage() {
       )}
 
       {/* Input */}
-      <div className="flex-shrink-0 bg-slate-900/80 border border-purple-500/20 rounded-xl p-3 flex items-end gap-3">
+      <div className="flex-shrink-0 [background:var(--nav-bg)] border theme-border rounded-xl p-3 flex items-end gap-3">
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about jobs, skills, salaries…"
           rows={1}
-          className="flex-1 bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none text-sm leading-relaxed max-h-32"
+          className="flex-1 bg-transparent theme-text placeholder:text-[var(--text-muted)] resize-none focus:outline-none text-sm leading-relaxed max-h-32"
           style={{ minHeight: '1.5rem' }}
           onInput={e => {
             const t = e.currentTarget;
@@ -258,7 +258,7 @@ export default function ChatPage() {
         <button
           onClick={() => sendMessage(input)}
           disabled={!input.trim() || loading}
-          className="flex-shrink-0 p-2.5 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white hover:shadow-lg glow-purple-hover smooth-transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-shrink-0 p-2.5 bg-[#FACC15] text-[#1F2937] rounded-lg theme-text hover:shadow-lg dark-card-hover smooth-transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
         </button>
