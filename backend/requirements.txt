@@ -39,7 +39,7 @@ aiohttp==3.13.4
 
 # NLP + ML
 spacy==3.8.4
-transformers==4.47.1
+transformers==5.0.0rc3
 torch==2.5.1
 safetensors==0.4.5
 sentence-transformers==3.3.1
