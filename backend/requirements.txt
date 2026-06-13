@@ -35,7 +35,7 @@ crawl4ai==0.8.0
 feedparser==6.0.11
 requests==2.32.3
 httpx==0.27.2
-aiohttp==3.13.4
+aiohttp==3.14.0
 
 # NLP + ML
 spacy==3.8.4
