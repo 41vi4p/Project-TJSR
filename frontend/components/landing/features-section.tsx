@@ -56,10 +56,10 @@ export function FeaturesSection() {
             return (
               <div
                 key={index}
-                className="bg-slate-900/50 border border-purple-500/20 rounded-xl p-6 glow-purple-hover smooth-transition hover:bg-slate-800/50 group"
+                className="bg-slate-900/50 border border-yellow-400/20 rounded-xl p-6 smooth-transition hover:bg-slate-800/50 hover:border-yellow-400/40 group"
               >
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg flex items-center justify-center mb-4 glow-purple group-hover:glow-blue">
-                  <Icon size={24} className="text-white" />
+                <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center mb-4">
+                  <Icon size={24} className="text-[#1F2937]" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2 text-white">{feature.title}</h3>
                 <p className="text-gray-400">{feature.description}</p>

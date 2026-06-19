@@ -23,6 +23,8 @@ const ENGINE_LABELS: Record<string, string> = {
   playwright: 'Playwright (JS)',
   rss: 'RSS/Atom Feed',
   sitemap: 'Sitemap Discovery',
+  oracle_hcm: 'Oracle HCM',
+  talentbrew: 'TalentBrew',
 };
 
 // ── Result Banner ──────────────────────────────────────────────────────────────
@@ -276,6 +278,12 @@ export default function ScraperPage() {
                 if (e.target.value === 'phenom' && !newConfigJson.trim()) {
                   setNewConfigJson(JSON.stringify({ max_pages: 18, wait_time: 20 }, null, 2));
                 }
+                if (e.target.value === 'oracle_hcm' && !newConfigJson.trim()) {
+                  setNewConfigJson(JSON.stringify({ max_pages: 200 }, null, 2));
+                }
+                if (e.target.value === 'talentbrew' && !newConfigJson.trim()) {
+                  setNewConfigJson(JSON.stringify({ max_pages: 100 }, null, 2));
+                }
               }}
               className="theme-surface border theme-border rounded-lg py-2 px-3 theme-text focus:outline-none focus:theme-border"
             >
@@ -287,6 +295,8 @@ export default function ScraperPage() {
               <option value="selenium">Selenium — JavaScript SPAs</option>
               <option value="crawl4ai">Crawl4AI — JS + AI extraction</option>
               <option value="scrapling">Scrapling</option>
+              <option value="oracle_hcm">Oracle HCM — jpmc.fa.oraclecloud.com & similar</option>
+              <option value="talentbrew">TalentBrew — search.jobs.barclays & similar</option>
               <option value="rss">RSS/Atom Feed — job feed URLs</option>
               <option value="sitemap">Sitemap Discovery — auto-find job URLs</option>
             </select>
@@ -304,6 +314,8 @@ export default function ScraperPage() {
           <div className="mt-3 p-3 theme-input rounded-lg text-xs theme-muted space-y-0.5">
             <p><span className="text-yellow-400">Tip — NVIDIA jobs.nvidia.com:</span> use <strong className="text-white">Phenom People</strong> engine</p>
             <p><span className="text-yellow-400">Tip — Oracle careers.oracle.com:</span> use <strong className="text-white">Crawl4AI</strong> or <strong className="text-white">Selenium</strong></p>
+            <p><span className="text-yellow-400">Tip — JPMC / Oracle HCM (*.fa.oraclecloud.com):</span> use <strong className="text-white">Oracle HCM</strong> engine — hits the REST API directly, no browser needed</p>
+            <p><span className="text-yellow-400">Tip — Barclays (search.jobs.barclays):</span> use <strong className="text-white">TalentBrew</strong> engine — Selenium paginates the listing, then BS4 extracts JSON-LD from each detail page</p>
             <p><span className="text-blue-300">Tip — Google Careers:</span> use <strong className="text-white">Google Careers</strong> engine — add URL like <code className="text-gray-400">google.com/about/careers/applications/jobs/results?location=India</code></p>
             <p><span className="text-yellow-400">Tip — individual job URLs:</span> <strong className="text-white">BS4</strong> works great when the page has JSON-LD</p>
           </div>

@@ -137,13 +137,14 @@ async def send_email_digest(
         }
 
     # Build HTML email
-    job_rows = "".join(
-        f"<tr><td style='padding:8px;border-bottom:1px solid #eee'><b>{j.title}</b><br>"
-        f"<span style='color:#666'>{j.company} • {j.location or 'Remote'}</span></td>"
-        f"<td style='padding:8px;border-bottom:1px solid #eee'>"
-        f"{'<a href=\"' + j.apply_link + '\">Apply</a>' if j.apply_link else 'N/A'}</td></tr>"
-        for j in jobs
-    )
+    job_rows = ""
+    for j in jobs:
+        apply_cell = f'<a href="{j.apply_link}">Apply</a>' if j.apply_link else "N/A"
+        job_rows += (
+            f"<tr><td style='padding:8px;border-bottom:1px solid #eee'><b>{j.title}</b><br>"
+            f"<span style='color:#666'>{j.company} • {j.location or 'Remote'}</span></td>"
+            f"<td style='padding:8px;border-bottom:1px solid #eee'>{apply_cell}</td></tr>"
+        )
     html = f"""<html><body style='font-family:sans-serif;max-width:600px;margin:auto'>
 <h2 style='color:#1F2937'>🔔 TJSR Daily Job Digest</h2>
 <p>Here are today's top job openings matching your profile:</p>

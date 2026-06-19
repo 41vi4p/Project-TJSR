@@ -189,7 +189,8 @@ export default function JobsPage() {
       });
       setAllJobs(jobs);
       setPage(1);
-    } catch {
+    } catch (err) {
+      console.error('[Firestore] fetchJobs failed:', err);
       setError(true);
     } finally {
       setLoading(false);

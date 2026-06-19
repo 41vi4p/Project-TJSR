@@ -19,6 +19,8 @@ from app.services.scraper.crawl4ai_scraper import Crawl4AIScraper
 from app.services.scraper.newspaper_scraper import NewspaperScraper
 from app.services.scraper.phenom_scraper import PhenomScraper
 from app.services.scraper.google_careers_scraper import GoogleCareersScraper
+from app.services.scraper.oracle_hcm_scraper import OracleHCMScraper
+from app.services.scraper.talentbrew_scraper import TalentBrewScraper
 from app.services.scraper.playwright_scraper import PlaywrightScraper
 from app.services.scraper.rss_scraper import RSSFeedScraper
 from app.services.scraper.sitemap_scraper import SitemapScraper
@@ -38,6 +40,8 @@ class ScraperManager:
         "newspaper": NewspaperScraper,
         "phenom": PhenomScraper,
         "google_careers": GoogleCareersScraper,
+        "oracle_hcm": OracleHCMScraper,
+        "talentbrew": TalentBrewScraper,
         "playwright": PlaywrightScraper,
         "rss": RSSFeedScraper,
         "sitemap": SitemapScraper,

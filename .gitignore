@@ -6,5 +6,5 @@ firebase-service-account.json
 ref/
 
 firestore.rules
-
+firebase.json
 firestore.indexes.json

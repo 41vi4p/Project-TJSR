@@ -47,7 +47,9 @@ export default function DashboardHome() {
           fetchJobs({ pageSize: 3, sortBy: 'date_scraped' }),
         ]);
         if (statsData.status === 'fulfilled' && statsData.value) setStats(statsData.value);
+        else if (statsData.status === 'rejected') console.error('[Firestore] fetchDashboardStats failed:', statsData.reason);
         if (jobsData.status === 'fulfilled') setLatestJobs(jobsData.value.jobs.map(toCard));
+        else console.error('[Firestore] fetchJobs (dashboard) failed:', jobsData.reason);
       } finally {
         setLoading(false);
       }

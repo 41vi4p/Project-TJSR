@@ -326,6 +326,53 @@ html.dark .brand-card:hover {
   transition: all 0.3s ease-in-out;
 }
 
+/* ── Opening Sequence ───────────────────────────────────────────────────── */
+.os-phrase-wrap {
+  text-align: center;
+  padding: 1rem 2rem;
+  transition: opacity 650ms ease;
+  will-change: opacity;
+}
+
+.os-phrase {
+  font-size: clamp(3.5rem, 9vw, 8rem);
+  font-weight: 800;
+  color: white;
+  text-align: center;
+  line-height: 1.25;
+  margin: 0;
+  letter-spacing: -0.015em;
+  text-shadow: 0 2px 40px rgba(0, 0, 0, 0.4);
+}
+
+.os-phrase-accent .char-inner {
+  background: linear-gradient(to right, #FACC15, #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.word {
+  display: inline-block;
+  margin: 0 0.12em;
+}
+
+.char {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.char-inner {
+  display: inline-block;
+  animation: charReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes charReveal {
+  from { transform: translateY(110%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

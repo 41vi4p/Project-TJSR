@@ -10,7 +10,7 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 w-full bg-black/80 backdrop-blur-md border-b border-purple-500/10 z-50">
+    <nav className="fixed top-0 w-full bg-black/80 backdrop-blur-md border-b border-yellow-400/10 z-50">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Left Side: Logo + Nav Links */}
@@ -40,7 +40,7 @@ export function Navbar() {
 
           {/* Right Side: CTA Button */}
           <div className="hidden md:flex items-center">
-            <Link href="/auth" className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white font-semibold hover:shadow-lg glow-purple-hover smooth-transition">
+            <Link href="/auth" className="px-6 py-2 bg-[#FACC15] hover:bg-[#EAB308] rounded-lg text-[#1F2937] font-semibold hover:shadow-lg smooth-transition">
               Get Started
             </Link>
           </div>
@@ -64,7 +64,7 @@ export function Navbar() {
               Features
             </Link>
 
-            <Link href="/auth" className="block w-full px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg text-white font-semibold text-center hover:shadow-lg glow-purple-hover smooth-transition mt-4">
+            <Link href="/auth" className="block w-full px-6 py-2 bg-[#FACC15] hover:bg-[#EAB308] rounded-lg text-[#1F2937] font-semibold text-center hover:shadow-lg smooth-transition mt-4">
               Get Started
             </Link>
           </div>
