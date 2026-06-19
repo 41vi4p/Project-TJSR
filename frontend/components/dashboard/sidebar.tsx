@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home, Briefcase, Zap, Settings, FileText, Bug, LogOut,
-  MessageSquare, Network, BotMessageSquare,
+  Home, Briefcase, Settings, FileText, LogOut,
+  Network, BotMessageSquare,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
@@ -15,12 +15,9 @@ import { useSidebar } from '@/lib/sidebar-context';
 const navItems = [
   { icon: Home,             label: 'Dashboard',       href: '/dashboard' },
   { icon: Briefcase,        label: 'Job Listings',     href: '/dashboard/jobs' },
-  { icon: Zap,              label: 'Scraper Control',  href: '/dashboard/scraper' },
-  { icon: MessageSquare,    label: 'Bot Control',      href: '/dashboard/bot' },
   { icon: BotMessageSquare, label: 'AI Chat',          href: '/dashboard/chat' },
   { icon: Network,          label: 'Knowledge Graph',  href: '/dashboard/graph' },
   { icon: FileText,         label: 'Resume Analyzer',  href: '/dashboard/resume' },
-  { icon: Bug,              label: 'Debug Logs',       href: '/dashboard/debug' },
   { icon: Settings,         label: 'Settings',         href: '/dashboard/settings' },
 ];
 

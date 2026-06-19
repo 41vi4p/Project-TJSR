@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   updateProfile,
   updatePassword,
@@ -12,8 +12,9 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
-import { Bell, Lock, User, LogOut, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { Bell, Lock, User, LogOut, Save, CheckCircle, AlertCircle, Key, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
+import { saveGroqApiKey, clearGroqApiKey, fetchUserProfile } from '@/lib/firestore';
 
 function StatusMessage({ type, message }: { type: 'success' | 'error'; message: string }) {
   return (
@@ -33,7 +34,8 @@ function StatusMessage({ type, message }: { type: 'success' | 'error'; message: 
 export default function SettingsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('profile');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') ?? 'profile');
 
   // Profile state
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
@@ -49,6 +51,13 @@ export default function SettingsPage() {
     companyUpdates: false,
   });
 
+  // API Keys state
+  const [groqKey, setGroqKey] = useState('');
+  const [groqKeySaved, setGroqKeySaved] = useState(false);
+  const [showGroqKey, setShowGroqKey] = useState(false);
+  const [apiKeyStatus, setApiKeyStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+
   // Security state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -57,6 +66,53 @@ export default function SettingsPage() {
   const [securityLoading, setSecurityLoading] = useState(false);
   const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Load existing Groq key on mount
+  useEffect(() => {
+    if (!user?.uid) return;
+    fetchUserProfile(user.uid).then(profile => {
+      if (profile?.api_keys?.groq) {
+        setGroqKey(profile.api_keys.groq);
+        setGroqKeySaved(true);
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  const handleSaveGroqKey = async () => {
+    if (!user?.uid || !groqKey.trim()) return;
+    if (!groqKey.startsWith('gsk_')) {
+      setApiKeyStatus({ type: 'error', message: 'Groq API keys start with gsk_' });
+      return;
+    }
+    setApiKeyLoading(true);
+    setApiKeyStatus(null);
+    try {
+      await saveGroqApiKey(user.uid, groqKey.trim());
+      setGroqKeySaved(true);
+      setApiKeyStatus({ type: 'success', message: 'Groq API key saved.' });
+    } catch {
+      setApiKeyStatus({ type: 'error', message: 'Failed to save API key.' });
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleClearGroqKey = async () => {
+    if (!user?.uid) return;
+    setApiKeyLoading(true);
+    setApiKeyStatus(null);
+    try {
+      await clearGroqApiKey(user.uid);
+      setGroqKey('');
+      setGroqKeySaved(false);
+      setApiKeyStatus({ type: 'success', message: 'Groq API key removed.' });
+    } catch {
+      setApiKeyStatus({ type: 'error', message: 'Failed to remove API key.' });
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
 
   const isGoogleUser = user?.providerData.some((p) => p.providerId === 'google.com') ?? false;
   const isPasswordUser = user?.providerData.some((p) => p.providerId === 'password') ?? false;
@@ -148,6 +204,7 @@ export default function SettingsPage() {
           { id: 'profile', label: 'Profile', icon: User },
           { id: 'notifications', label: 'Notifications', icon: Bell },
           { id: 'security', label: 'Security', icon: Lock },
+          { id: 'apikeys', label: 'API Keys', icon: Key },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -404,6 +461,57 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+        {/* API Keys Tab */}
+        {activeTab === 'apikeys' && (
+          <div className="space-y-6">
+            <div className="brand-card dark-card rounded-lg p-6">
+              <h2 className="text-lg font-bold theme-text mb-1">Groq API Key</h2>
+              <p className="text-sm theme-muted mb-4">
+                Used for AI Chat. Your key is stored in your account and never shared.{' '}
+                <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer"
+                   className="text-yellow-500 hover:text-yellow-400 underline inline-flex items-center gap-1">
+                  Get a free key <ExternalLink size={12} />
+                </a>
+              </p>
+
+              <div className="space-y-4">
+                <div className="relative">
+                  <label className="block text-sm font-medium theme-text-soft mb-2">API Key</label>
+                  <div className="flex gap-2">
+                    <input
+                      type={showGroqKey ? 'text' : 'password'}
+                      value={groqKey}
+                      onChange={e => { setGroqKey(e.target.value); setGroqKeySaved(false); }}
+                      placeholder="gsk_••••••••••••••••••••••••••••••••"
+                      className="flex-1 theme-surface border theme-border rounded-lg py-2 px-4 theme-text placeholder:text-[var(--text-muted)] focus:outline-none font-mono text-sm"
+                    />
+                    <button onClick={() => setShowGroqKey(v => !v)}
+                      className="px-3 theme-surface border theme-border rounded-lg theme-muted hover:theme-text transition-colors">
+                      {showGroqKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {groqKeySaved && <p className="text-xs text-green-400 mt-1">✓ Key saved</p>}
+                </div>
+
+                {apiKeyStatus && <StatusMessage type={apiKeyStatus.type} message={apiKeyStatus.message} />}
+
+                <div className="flex gap-3">
+                  <button onClick={handleSaveGroqKey} disabled={apiKeyLoading || !groqKey.trim()}
+                    className="flex items-center justify-center gap-2 flex-1 bg-[#FACC15] text-[#1F2937] rounded-lg py-2.5 font-semibold disabled:opacity-50 transition-all hover:shadow-lg">
+                    <Save size={16} />
+                    {apiKeyLoading ? 'Saving…' : 'Save Key'}
+                  </button>
+                  {groqKeySaved && (
+                    <button onClick={handleClearGroqKey} disabled={apiKeyLoading}
+                      className="px-4 py-2.5 border theme-border rounded-lg text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50 text-sm">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

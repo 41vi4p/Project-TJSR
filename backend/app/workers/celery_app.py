@@ -28,6 +28,15 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.scrape_all_sources",
         "schedule": crontab(minute=0, hour="*/6"),  # every 6 hours
     },
+    # Firestore sync: resumes processed every 2 min; graph re-exported every 6 h (aligned with scrape)
+    "process-pending-resumes": {
+        "task": "app.workers.tasks.process_pending_resumes",
+        "schedule": 120,  # every 2 minutes
+    },
+    "sync-graph-to-firebase": {
+        "task": "app.workers.tasks.sync_graph_to_firebase",
+        "schedule": crontab(minute=30, hour="*/6"),  # 30 min after scrape
+    },
 }
 
 celery_app.autodiscover_tasks(["app.workers"])

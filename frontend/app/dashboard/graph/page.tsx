@@ -3,7 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Search, Info, Network, Loader2, Filter } from 'lucide-react';
-import { graphApi, type GraphData, type GraphNode, type GraphEdge } from '@/lib/api-client';
+import { fetchGraphSnapshot, type FSGraphSnapshot } from '@/lib/firestore';
+
+// Local type aliases for backwards compatibility with the render code
+type GraphNode = FSGraphSnapshot['nodes'][0];
+type GraphEdge = FSGraphSnapshot['edges'][0];
+type GraphData = { nodes: GraphNode[]; edges: GraphEdge[]; stats: Record<string, number> };
 
 // Dynamically import ForceGraph3D (SSR disabled — needs browser/WebGL)
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false });
@@ -41,16 +46,21 @@ export default function GraphPage() {
   const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set(Object.keys(NODE_TYPE_LABELS)));
   const graphRef = useRef<unknown>(null);
 
-  const loadGraph = useCallback(async (company?: string, skill?: string) => {
+  const loadGraph = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await graphApi.getData({ company, skill, limit: 500 });
+      const snap = await fetchGraphSnapshot();
+      if (!snap) {
+        setError('No graph snapshot available yet. The backend syncs the graph every 6 hours.');
+        return;
+      }
+      const data: GraphData = { nodes: snap.nodes, edges: snap.edges, stats: snap.stats };
       setRawData(data);
       setStats(data.stats || {});
       applyData(data, activeTypes);
     } catch {
-      setError('Could not load graph data. Ensure Neo4j is running and jobs have been scraped.');
+      setError('Could not load graph data from Firestore. Check your connection.');
     } finally {
       setLoading(false);
     }
@@ -98,13 +108,19 @@ export default function GraphPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchTerm) return;
-    // Try to detect if it's a company or skill search
-    if (searchTerm.toLowerCase().startsWith('skill:')) {
-      loadGraph(undefined, searchTerm.slice(6).trim());
-    } else {
-      loadGraph(searchTerm.trim());
-    }
+    if (!rawData) return;
+    const q = searchTerm.trim().toLowerCase().replace(/^skill:/, '');
+    if (!q) { applyData(rawData, activeTypes); return; }
+    const focused: GraphData = {
+      ...rawData,
+      nodes: rawData.nodes.filter(n => n.label.toLowerCase().includes(q)),
+    };
+    const ids = new Set(focused.nodes.map(n => n.id));
+    focused.edges = rawData.edges.filter(e => ids.has(e.source) && ids.has(e.target));
+    setGraphData({
+      nodes: focused.nodes.map(n => ({ id: n.id, name: n.label, type: n.type, color: NODE_TYPE_COLORS[n.type] || '#888', val: n.size || 1, properties: n.properties })),
+      links: focused.edges.map(e => ({ source: e.source, target: e.target, name: e.label, color: 'rgba(139,92,246,0.3)' })),
+    });
   };
 
   const handleNodeClick = (node: object) => {
@@ -155,7 +171,7 @@ export default function GraphPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setSearchTerm(''); loadGraph(); }}
+                onClick={() => { setSearchTerm(''); if (rawData) applyData(rawData, activeTypes); }}
                 className="w-full py-2 border theme-border rounded-lg theme-muted text-sm hover:text-[var(--text-main)] smooth-transition"
               >
                 Reset View
@@ -221,7 +237,7 @@ export default function GraphPage() {
                 ))}
                 {selectedNode.node.type === 'company' && (
                   <button
-                    onClick={() => { setSearchTerm(selectedNode.node.label); loadGraph(selectedNode.node.label); }}
+                    onClick={() => { setSearchTerm(selectedNode.node.label); if (rawData) { const q = selectedNode.node.label.toLowerCase(); const focused = rawData.nodes.filter(n => n.label.toLowerCase().includes(q)); const ids = new Set(focused.map(n => n.id)); setGraphData({ nodes: focused.map(n => ({ id: n.id, name: n.label, type: n.type, color: NODE_TYPE_COLORS[n.type] || '#888', val: n.size || 1, properties: n.properties })), links: rawData.edges.filter(e => ids.has(e.source) && ids.has(e.target)).map(e => ({ source: e.source, target: e.target, name: e.label, color: 'rgba(139,92,246,0.3)' })) }); } }}
                     className="w-full mt-2 py-1.5 bg-yellow-400/15 border theme-border rounded-lg text-yellow-500 text-xs hover:bg-yellow-400/20 smooth-transition"
                   >
                     Focus Company Network

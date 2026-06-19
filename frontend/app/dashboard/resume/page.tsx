@@ -10,6 +10,9 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+import { fetchUserProfile, clearResumeSkills, queueResumeUpload } from '@/lib/firestore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ActiveTab = 'score' | 'build' | 'ats' | 'generate';
@@ -595,24 +598,14 @@ export default function ResumeAnalyzerPage() {
   const [resumeSkills, setResumeSkills] = useState<string[]>([]);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-
-  // Load persisted skills + resume URL from backend on mount
+  // Load persisted skills from Firestore on mount
   useEffect(() => {
-    if (!user) return;
-    (async () => {
-      try {
-        const token = await (user as any)?.getIdToken?.();
-        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`${BACKEND_URL}/api/v1/resume/skills`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.skills?.length) setResumeSkills(data.skills);
-        }
-      } catch { /* non-fatal */ }
-    })();
+    if (!user?.uid) return;
+    fetchUserProfile(user.uid)
+      .then(profile => { if (profile?.resume_skills?.length) setResumeSkills(profile.resume_skills); })
+      .catch(() => { /* non-fatal */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.uid]);
 
   // ── Generate tab
   const [generating, setGenerating] = useState(false);
@@ -620,13 +613,9 @@ export default function ResumeAnalyzerPage() {
   const [showPreview, setShowPreview] = useState(false);
 
   async function handleDeleteResume() {
-    if (!user) return;
+    if (!user?.uid) return;
     try {
-      const token = await (user as any)?.getIdToken?.();
-      await fetch(`${BACKEND_URL}/api/v1/resume/skills`, {
-        method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      await clearResumeSkills(user.uid);
       setResumeSkills([]);
       setResumeUrl(null);
       setUploadedFile(null);
@@ -713,34 +702,22 @@ export default function ResumeAnalyzerPage() {
       // when a resume is uploaded on the Score tab.
       toast.success('Analysis complete! (Build auto-import is disabled)');
 
-      // ── Upload to backend for skill extraction + recommendations ──
-      try {
-        const token = await (user as any)?.getIdToken?.();
-        const backendFd = new FormData();
-        backendFd.append('file', file);
-        const uploadRes = await fetch(`${BACKEND_URL}/api/v1/resume/upload`, {
-          method: 'POST',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: backendFd,
-        });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          setResumeSkills(uploadData.skills || []);
-          if (uploadData.resume_url) setResumeUrl(uploadData.resume_url);
-          // Recompute match scores for all jobs, then fetch recommendations
-          await fetch(`${BACKEND_URL}/api/v1/resume/recompute-matches`, {
-            method: 'POST',
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+      // ── Upload to Firebase Storage + queue for backend skill extraction ──
+      if (user?.uid) {
+        try {
+          const path = `resumes/${user.uid}/${Date.now()}_${file.name}`;
+          const fileRef = storageRef(storage, path);
+          const uploadTask = uploadBytesResumable(fileRef, file, { contentType: file.type });
+          await new Promise<void>((resolve, reject) => {
+            uploadTask.on('state_changed', null, reject, resolve);
           });
-          const recRes = await fetch(`${BACKEND_URL}/api/v1/resume/recommendations?limit=6`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          if (recRes.ok) {
-            const recData = await recRes.json();
-            setRecommendations(recData.jobs || []);
-          }
-        }
-      } catch { /* non-fatal */ }
+          const downloadUrl = await getDownloadURL(fileRef);
+          setResumeUrl(downloadUrl);
+          // Queue for backend skill extraction (backend polls resume_queue every 2 min)
+          await queueResumeUpload(user.uid, path, file.type);
+          toast.info('Resume queued for skill extraction — results appear within 2 minutes.');
+        } catch { /* non-fatal, analysis above already succeeded */ }
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Analysis failed');
     } finally {

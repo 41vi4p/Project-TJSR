@@ -39,7 +39,7 @@ def add_to_graph(job_id: str):
 
 @celery_app.task(name="app.workers.tasks.process_job_pipeline")
 def process_job_pipeline(job_id: str):
-    """Full pipeline: classify -> embed -> graph -> compute match scores."""
+    """Full pipeline: classify -> embed -> graph -> compute match scores -> Firestore sync."""
     # Run classification inline (fast, needed for match_score)
     try:
         from app.services.classifier.predictor import classify_job_by_id
@@ -67,6 +67,13 @@ def process_job_pipeline(job_id: str):
         add_to_graph.delay(job_id)
     except Exception:
         pass  # Graph is non-critical
+
+    # Push fully-processed job to Firestore for the public frontend
+    try:
+        from app.services.firebase_sync import sync_job
+        sync_job(job_id)
+    except Exception as e:
+        logger.warning(f"Firestore sync failed for {job_id}: {e}")
 
 
 def _compute_match_scores(job_id: str):
@@ -170,6 +177,16 @@ def scrape_all_sources():
     except Exception as e:
         logger.warning(f"Beat: job archival failed: {e}")
 
+    # Refresh Firestore stats + graph snapshot after every scrape cycle
+    try:
+        sync_stats_to_firebase.delay()
+    except Exception:
+        pass
+    try:
+        sync_graph_to_firebase.delay()
+    except Exception:
+        pass
+
     return result
 
 
@@ -185,3 +202,41 @@ def send_daily_digest():
     """Send daily job digest to all subscribed Telegram users."""
     from app.services.telegram.notifications import send_all_digests
     return send_all_digests()
+
+
+# ─── Firebase sync tasks ──────────────────────────────────────────────────────
+
+@celery_app.task(name="app.workers.tasks.sync_stats_to_firebase")
+def sync_stats_to_firebase():
+    """Push aggregated dashboard stats from PostgreSQL → Firestore stats/dashboard."""
+    from app.services.firebase_sync import sync_stats
+    ok = sync_stats()
+    return {"ok": ok}
+
+
+@celery_app.task(name="app.workers.tasks.sync_graph_to_firebase")
+def sync_graph_to_firebase():
+    """Export Neo4j graph snapshot → Firestore graph/snapshot."""
+    from app.services.firebase_sync import sync_graph_snapshot
+    ok = sync_graph_snapshot()
+    return {"ok": ok}
+
+
+@celery_app.task(name="app.workers.tasks.process_pending_resumes")
+def process_pending_resumes():
+    """
+    Consume Firestore resume_queue: download uploads from Firebase Storage,
+    extract skills, and persist results to both PostgreSQL and Firestore.
+    """
+    from app.services.firebase_sync import process_pending_resumes as _process
+    return _process()
+
+
+@celery_app.task(name="app.workers.tasks.bulk_sync_jobs_to_firebase")
+def bulk_sync_jobs_to_firebase():
+    """
+    One-time migration task: push all existing PostgreSQL jobs to Firestore.
+    Run manually once: celery call app.workers.tasks.bulk_sync_jobs_to_firebase
+    """
+    from app.services.firebase_sync import bulk_sync_jobs
+    return bulk_sync_jobs()

@@ -4,3 +4,7 @@ firebase-service-account.json
 .env*.local
 
 ref/
+
+firestore.rules
+
+firestore.indexes.json

@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { JobCard } from '@/components/dashboard/job-card';
 import { TrendingUp, Users, Zap } from 'lucide-react';
-import { statsApi, jobsApi, type DashboardStats, type ActivityItem, type BackendJob } from '@/lib/api-client';
+import { fetchDashboardStats, fetchJobs, type FSDashboardStats, type FSJob } from '@/lib/firestore';
+import { Timestamp } from 'firebase/firestore';
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+function timeAgo(ts: Timestamp | string | null | undefined): string {
+  if (!ts) return 'recently';
+  const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
+  const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
@@ -15,7 +18,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function toFrontendJob(j: BackendJob) {
+function toCard(j: FSJob) {
   return {
     id: j.id,
     title: j.title,
@@ -25,29 +28,26 @@ function toFrontendJob(j: BackendJob) {
     jobType: (j.job_type as 'Full-time' | 'Part-time' | 'Contract' | 'Internship') || 'Full-time',
     salary: j.salary || undefined,
     applyLink: j.apply_link || '#',
-    datePosted: j.date_posted ? timeAgo(j.date_posted) : timeAgo(j.date_scraped),
+    datePosted: timeAgo(j.date_posted ?? j.date_scraped),
     matchScore: j.match_score || 0,
     description: j.description || '',
   };
 }
 
 export default function DashboardHome() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [latestJobs, setLatestJobs] = useState<ReturnType<typeof toFrontendJob>[]>([]);
+  const [stats, setStats] = useState<FSDashboardStats | null>(null);
+  const [latestJobs, setLatestJobs] = useState<ReturnType<typeof toCard>[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [statsData, activityData, jobsData] = await Promise.allSettled([
-          statsApi.dashboard(),
-          statsApi.activity(6),
-          jobsApi.list({ page_size: 3, sort_by: 'date_scraped', sort_order: 'desc' }),
+        const [statsData, jobsData] = await Promise.allSettled([
+          fetchDashboardStats(),
+          fetchJobs({ pageSize: 3, sortBy: 'date_scraped' }),
         ]);
-        if (statsData.status === 'fulfilled') setStats(statsData.value);
-        if (activityData.status === 'fulfilled') setActivity(activityData.value);
-        if (jobsData.status === 'fulfilled') setLatestJobs(jobsData.value.jobs.map(toFrontendJob));
+        if (statsData.status === 'fulfilled' && statsData.value) setStats(statsData.value);
+        if (jobsData.status === 'fulfilled') setLatestJobs(jobsData.value.jobs.map(toCard));
       } finally {
         setLoading(false);
       }
@@ -55,9 +55,9 @@ export default function DashboardHome() {
     load();
   }, []);
 
-  const displayActivity = activity.map(a => ({
+  const displayActivity = (stats?.recent_activity ?? []).slice(0, 5).map(a => ({
     action: a.message,
-    company: (a.metadata?.source as string) || 'System',
+    company: a.source || 'System',
     time: timeAgo(a.timestamp),
   }));
 
@@ -95,9 +95,9 @@ export default function DashboardHome() {
           </h2>
           {displayActivity.length > 0 ? (
             <div className="space-y-4">
-              {displayActivity.slice(0, 5).map((item, i) => (
+              {displayActivity.map((item, i) => (
                 <div key={i} className="flex items-start gap-4 pb-4 last:pb-0"
-                     style={{ borderBottom: i < Math.min(displayActivity.length, 5) - 1 ? '1px solid var(--border)' : 'none' }}>
+                     style={{ borderBottom: i < displayActivity.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0 bg-yellow-400" />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm break-words" style={{ color: 'var(--text-main)' }}>{item.action}</p>
@@ -116,10 +116,10 @@ export default function DashboardHome() {
           <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>Tips & Tricks</h3>
           <ul className="space-y-3 text-sm" style={{ color: 'var(--text-muted)' }}>
             {[
-              'Complete your profile to get better matches',
-              'Check our Telegram bot for daily job digests',
+              'Upload your resume to get skill-matched job recommendations',
+              'Set your Groq API key in Settings to enable AI chat',
               'Explore the Knowledge Graph to discover company networks',
-              'Use the AI Chat to query your job database',
+              'Jobs sync from the backend every 6 hours automatically',
             ].map((tip, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span className="text-yellow-500 font-bold">→</span>
@@ -144,7 +144,7 @@ export default function DashboardHome() {
           </div>
         ) : !loading ? (
           <div className="brand-card p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            No jobs yet — run the scraper to populate listings.
+            No jobs yet — the backend syncs new listings every 6 hours.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
