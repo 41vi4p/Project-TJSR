@@ -1,0 +1,11 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/auth/page": "/auth",
+  "/dashboard/bot/page": "/dashboard/bot",
+  "/dashboard/debug/page": "/dashboard/debug",
+  "/dashboard/firebase/page": "/dashboard/firebase",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/scraper/page": "/dashboard/scraper",
+  "/page": "/"
+}

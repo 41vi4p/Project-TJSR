@@ -1,0 +1,11 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/page": "app/auth/page.js",
+  "/dashboard/bot/page": "app/dashboard/bot/page.js",
+  "/dashboard/debug/page": "app/dashboard/debug/page.js",
+  "/dashboard/firebase/page": "app/dashboard/firebase/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/scraper/page": "app/dashboard/scraper/page.js",
+  "/page": "app/page.js"
+}
