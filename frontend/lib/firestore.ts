@@ -48,9 +48,28 @@ export interface FSGraphSnapshot {
   last_updated: Timestamp;
 }
 
+export interface FSMatchedJob {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  skills: string[];
+  job_type: string;
+  salary: string;
+  apply_link: string;
+  match_score: number;
+  description: string;
+  date_posted: string | null;
+  date_scraped: string | null;
+}
+
 export interface FSUserProfile {
   resume_skills?: string[];
   skills_updated_at?: Timestamp;
+  matched_jobs?: FSMatchedJob[];
+  matched_jobs_count?: number;
+  matched_jobs_updated_at?: Timestamp | string;
+  resume_text?: string;
   api_keys?: { groq?: string };
   preferences?: Record<string, unknown>;
 }
@@ -130,6 +149,25 @@ export async function clearResumeSkills(uid: string): Promise<void> {
   await setDoc(doc(db, 'users', uid), { resume_skills: [], skills_updated_at: null }, { merge: true });
 }
 
+export async function fetchMatchedJobs(uid: string): Promise<FSMatchedJob[]> {
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return [];
+  const data = snap.data() as FSUserProfile;
+  return data.matched_jobs ?? [];
+}
+
+export async function fetchResumeQueueStatus(uid: string): Promise<{
+  status: string;
+  skills_count?: number;
+  queued_at?: Timestamp;
+  processed_at?: Timestamp;
+  error?: string;
+} | null> {
+  const snap = await getDoc(doc(db, 'resume_queue', uid));
+  if (!snap.exists()) return null;
+  return snap.data() as { status: string; skills_count?: number; queued_at?: Timestamp; processed_at?: Timestamp; error?: string };
+}
+
 // ─── Resume upload queue ──────────────────────────────────────────────────────
 
 export async function queueResumeUpload(
@@ -141,6 +179,15 @@ export async function queueResumeUpload(
     status: 'pending',
     storage_path: storagePath,
     content_type: contentType,
+    queued_at: new Date(),
+  });
+}
+
+/** Re-trigger job matching from the resume data already stored on users/{uid} (no re-upload). */
+export async function queueRecompute(uid: string): Promise<void> {
+  await setDoc(doc(db, 'resume_queue', uid), {
+    status: 'pending',
+    action: 'recompute',
     queued_at: new Date(),
   });
 }

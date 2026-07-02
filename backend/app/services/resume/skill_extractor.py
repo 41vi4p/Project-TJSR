@@ -231,6 +231,27 @@ def extract_text_from_txt(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+_EMBED_MODEL = None
+
+
+def generate_embedding(text: str) -> list[float]:
+    """Return a 384-dim normalized embedding for *text* using all-MiniLM-L6-v2."""
+    global _EMBED_MODEL
+    if _EMBED_MODEL is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            _EMBED_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception as exc:
+            logger.warning(f"sentence-transformers unavailable: {exc}")
+            return []
+    try:
+        vec = _EMBED_MODEL.encode(text[:8000], normalize_embeddings=True)
+        return vec.tolist()
+    except Exception as exc:
+        logger.warning(f"generate_embedding failed: {exc}")
+        return []
+
+
 def parse_resume(filename: str, data: bytes) -> tuple[str, list[str]]:
     """
     Parse uploaded resume file → (extracted_text, skill_list).

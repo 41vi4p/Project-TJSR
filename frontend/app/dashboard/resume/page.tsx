@@ -6,16 +6,20 @@ import {
   BarChart3, Sparkles, Plus, X, Download, Loader2,
   ClipboardPaste, RefreshCw, Trophy, Zap, Tags, XCircle,
   Wand2, Save, ChevronRight, Briefcase, MapPin, ExternalLink, Trash2, Eye, EyeOff,
+  Star, Clock, RefreshCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
-import { fetchUserProfile, clearResumeSkills, queueResumeUpload } from '@/lib/firestore';
+import {
+  fetchUserProfile, clearResumeSkills, queueResumeUpload, fetchMatchedJobs,
+  fetchResumeQueueStatus, queueRecompute, type FSMatchedJob,
+} from '@/lib/firestore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type ActiveTab = 'score' | 'build' | 'ats' | 'generate';
+type ActiveTab = 'score' | 'build' | 'ats' | 'generate' | 'matches';
 
 interface SkillGroup { category: string; skills: string }
 interface EduRow { degree: string; institution: string; year: string; cgpa: string; field: string }
@@ -598,14 +602,46 @@ export default function ResumeAnalyzerPage() {
   const [resumeSkills, setResumeSkills] = useState<string[]>([]);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
 
-  // Load persisted skills from Firestore on mount
+  // ── Matches tab state
+  const [matchedJobs, setMatchedJobs]           = useState<FSMatchedJob[]>([]);
+  const [matchesLoading, setMatchesLoading]     = useState(false);
+  const [queueStatus, setQueueStatus]           = useState<'none' | 'pending' | 'processing' | 'processed' | 'failed' | null>(null);
+  const [recomputeLoading, setRecomputeLoading] = useState(false);
+
+  // Load persisted skills + matched jobs from Firestore on mount
   useEffect(() => {
     if (!user?.uid) return;
     fetchUserProfile(user.uid)
-      .then(profile => { if (profile?.resume_skills?.length) setResumeSkills(profile.resume_skills); })
+      .then(profile => {
+        if (profile?.resume_skills?.length) setResumeSkills(profile.resume_skills);
+        if (profile?.matched_jobs?.length)  setMatchedJobs(profile.matched_jobs);
+      })
       .catch(() => { /* non-fatal */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid]);
+
+  // Poll queue status while processing
+  useEffect(() => {
+    if (!user?.uid || (queueStatus !== 'pending' && queueStatus !== 'processing')) return;
+    const interval = setInterval(async () => {
+      try {
+        const st = await fetchResumeQueueStatus(user.uid!);
+        setQueueStatus((st?.status as typeof queueStatus) ?? 'none');
+        if (st?.status === 'processed') {
+          // Fetch fresh matched jobs from Firestore
+          const jobs = await fetchMatchedJobs(user.uid!);
+          setMatchedJobs(jobs);
+          toast.success(`Resume processed! ${jobs.length} job matches found.`);
+          clearInterval(interval);
+        } else if (st?.status === 'failed') {
+          toast.error('Resume processing failed. Try re-uploading.');
+          clearInterval(interval);
+        }
+      } catch { /* ignore network errors during polling */ }
+    }, 8000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, queueStatus]);
 
   // ── Generate tab
   const [generating, setGenerating] = useState(false);
@@ -713,9 +749,10 @@ export default function ResumeAnalyzerPage() {
           });
           const downloadUrl = await getDownloadURL(fileRef);
           setResumeUrl(downloadUrl);
-          // Queue for backend skill extraction (backend polls resume_queue every 2 min)
+          // Queue for backend skill extraction + embedding + job matching
           await queueResumeUpload(user.uid, path, file.type);
-          toast.info('Resume queued for skill extraction — results appear within 2 minutes.');
+          setQueueStatus('pending');
+          toast.info('Resume saved — running AI matching in background…');
         } catch { /* non-fatal, analysis above already succeeded */ }
       }
     } catch (err: unknown) {
@@ -911,11 +948,12 @@ export default function ResumeAnalyzerPage() {
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
-  const TABS: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'score', label: 'Overall Score', icon: <TrendingUp size={16} /> },
-    { id: 'build', label: 'Build', icon: <FileText size={16} /> },
-    { id: 'ats', label: 'ATS Check', icon: <BarChart3 size={16} /> },
-    { id: 'generate', label: 'Generate', icon: <Download size={16} /> },
+  const TABS: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: 'score',   label: 'Overall Score', icon: <TrendingUp size={16} /> },
+    { id: 'build',   label: 'Build',         icon: <FileText size={16} /> },
+    { id: 'ats',     label: 'ATS Check',     icon: <BarChart3 size={16} /> },
+    { id: 'generate',label: 'Generate',      icon: <Download size={16} /> },
+    { id: 'matches', label: 'Matches',       icon: <Sparkles size={16} />, badge: matchedJobs.length || undefined },
   ];
 
   return (
@@ -930,11 +968,17 @@ export default function ResumeAnalyzerPage() {
       <div className="flex gap-1 [background:var(--card-bg2)] border theme-border rounded-xl p-1 mb-6">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === t.id
-              ? 'bg-[#FACC15] text-[#1F2937] theme-text shadow-lg'
+            className={`flex-1 relative flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === t.id
+              ? 'bg-[#FACC15] text-[#1F2937] shadow-lg'
               : 'text-gray-400 hover:text-[var(--text-main)]'
               }`}>
-            {t.icon} <span className="hidden sm:inline">{t.label}</span>
+            {t.icon}
+            <span className="hidden sm:inline">{t.label}</span>
+            {t.badge ? (
+              <span className="absolute -top-1 -right-1 text-[10px] font-bold bg-yellow-400 text-[#1F2937] rounded-full px-1 min-w-[16px] text-center">
+                {t.badge > 99 ? '99+' : t.badge}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -1648,6 +1692,147 @@ export default function ResumeAnalyzerPage() {
             {generating ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
             {generating ? 'Generating…' : 'Download Resume'}
           </button>
+        </div>
+      )}
+
+      {/* ══════════════════════ MATCHES TAB ══════════════════════ */}
+      {tab === 'matches' && (
+        <div className="space-y-5">
+          {/* Header row */}
+          <div className="brand-card p-5 flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={18} className="text-yellow-400" />
+                <h2 className="font-semibold theme-text">AI Job Matches</h2>
+              </div>
+              <p className="text-xs theme-muted">
+                {matchedJobs.length > 0
+                  ? `${matchedJobs.length} jobs ranked by embedding similarity + keyword overlap from your resume.`
+                  : 'Upload your resume on the Score tab to see personalized job matches here.'}
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {/* Processing status badge */}
+              {queueStatus === 'pending' && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
+                  <Clock size={11} /> Queued…
+                </span>
+              )}
+              {queueStatus === 'processing' && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-blue-400/10 text-blue-400 border border-blue-400/20">
+                  <Loader2 size={11} className="animate-spin" /> Computing matches…
+                </span>
+              )}
+              {queueStatus === 'processed' && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-400/10 text-green-400 border border-green-400/20">
+                  <CheckCircle2 size={11} /> Done
+                </span>
+              )}
+              {/* Recompute button */}
+              {matchedJobs.length > 0 && (
+                <button
+                  disabled={recomputeLoading}
+                  onClick={async () => {
+                    if (!user?.uid) return;
+                    setRecomputeLoading(true);
+                    try {
+                      await queueRecompute(user.uid);
+                      setQueueStatus('pending');
+                      toast.info('Recompute queued — matches will update within a couple minutes.');
+                    } catch { toast.error('Failed to start recompute'); }
+                    finally { setRecomputeLoading(false); }
+                  }}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border theme-border theme-muted hover:text-yellow-400 hover:border-yellow-400/40 transition-colors disabled:opacity-40">
+                  {recomputeLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCcw size={11} />}
+                  Recompute
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Empty state */}
+          {matchedJobs.length === 0 && queueStatus !== 'pending' && queueStatus !== 'processing' && (
+            <div className="brand-card p-10 text-center">
+              <Sparkles size={32} className="text-yellow-400/40 mx-auto mb-3" />
+              <p className="theme-text font-medium mb-1">No matches yet</p>
+              <p className="text-xs theme-muted mb-4">Upload your resume on the <strong>Score</strong> tab — the backend will extract skills, generate embeddings, and rank the best matching jobs for you.</p>
+              <button onClick={() => setTab('score')} className="text-sm font-semibold text-yellow-400 hover:text-yellow-300 transition-colors">
+                Go to Score tab →
+              </button>
+            </div>
+          )}
+
+          {/* Processing placeholder */}
+          {matchedJobs.length === 0 && (queueStatus === 'pending' || queueStatus === 'processing') && (
+            <div className="brand-card p-10 text-center">
+              <Loader2 size={32} className="text-yellow-400/40 mx-auto mb-3 animate-spin" />
+              <p className="theme-text font-medium mb-1">
+                {queueStatus === 'pending' ? 'Waiting for backend worker…' : 'Generating embeddings & ranking jobs…'}
+              </p>
+              <p className="text-xs theme-muted">This takes about 30–60 seconds. The page will update automatically.</p>
+            </div>
+          )}
+
+          {/* Job cards */}
+          {matchedJobs.length > 0 && (
+            <div className="space-y-3">
+              {matchedJobs.map((job, i) => (
+                <div key={job.id} className="brand-card p-4 flex gap-4 items-start hover:border-yellow-400/20 transition-colors">
+                  {/* Rank + Score */}
+                  <div className="flex flex-col items-center gap-1 shrink-0 w-12">
+                    <span className="text-xs theme-muted">#{i + 1}</span>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                      style={{ background: `conic-gradient(#FACC15 ${job.match_score * 3.6}deg, rgba(250,204,21,0.1) 0deg)` }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-yellow-400" style={{ background: 'var(--card-bg)' }}>
+                        {job.match_score}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Job info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold theme-text text-sm truncate">{job.title}</p>
+                        <p className="text-xs theme-muted flex items-center gap-1 mt-0.5">
+                          <Briefcase size={11} /> {job.company}
+                          {job.location && <><MapPin size={11} className="ml-1" /> {job.location}</>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {job.job_type && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border theme-border theme-muted whitespace-nowrap">{job.job_type}</span>
+                        )}
+                        {job.apply_link && (
+                          <a href={job.apply_link} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[11px] font-semibold text-yellow-400 hover:text-yellow-300 transition-colors">
+                            Apply <ExternalLink size={10} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Description snippet */}
+                    {job.description && (
+                      <p className="text-xs theme-muted mt-2 line-clamp-2">{job.description}</p>
+                    )}
+
+                    {/* Skills */}
+                    {job.skills?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {job.skills.slice(0, 8).map(s => (
+                          <span key={s} className={`text-[10px] px-1.5 py-0.5 rounded border ${resumeSkills.map(rs => rs.toLowerCase()).includes(s.toLowerCase()) ? 'border-yellow-400/40 text-yellow-400 bg-yellow-400/5' : 'theme-border theme-muted'}`}>
+                            {s}
+                          </span>
+                        ))}
+                        {job.skills.length > 8 && <span className="text-[10px] theme-muted">+{job.skills.length - 8}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

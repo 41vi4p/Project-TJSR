@@ -376,6 +376,11 @@ def process_pending_resumes() -> dict:
       3. This function runs every ~2 min (Celery beat), downloads each
          pending file, extracts skills, and writes results back to both
          PostgreSQL (users.resume_skills) and Firestore (users/{uid}).
+
+    Recompute-only flow (no re-upload, just re-rank matches):
+      Frontend writes  resume_queue/{uid}  →  { status: "pending", action: "recompute" }
+      (no storage_path). This function reuses the resume_text/skills/embedding
+      already stored on users/{uid} instead of re-downloading and re-parsing a file.
     """
     db = get_firestore()
     if not db:
@@ -395,19 +400,56 @@ def process_pending_resumes() -> dict:
     for doc in pending_docs:
         uid  = doc.id
         data = doc.to_dict() or {}
-        storage_path = data.get("storage_path", "")
-        content_type = data.get("content_type", "application/pdf")
-        filename     = storage_path.split("/")[-1] if storage_path else "resume.pdf"
+        action = data.get("action", "upload")
 
         # Claim the document so a parallel worker won't double-process it
         doc.reference.update({"status": "processing"})
+
+        if action == "recompute":
+            try:
+                user_doc = db.collection("users").document(uid).get()
+                u = (user_doc.to_dict() or {}) if user_doc.exists else {}
+                _text     = u.get("resume_text", "")
+                skills    = u.get("resume_skills", []) or []
+                embedding = u.get("resume_embedding", [])
+
+                if not _text and not skills:
+                    raise ValueError("No stored resume data to recompute from")
+
+                if not embedding and _text:
+                    from app.services.resume.skill_extractor import generate_embedding
+                    embedding = generate_embedding(_text)
+                    if embedding:
+                        db.collection("users").document(uid).set(
+                            {"resume_embedding": embedding}, merge=True
+                        )
+
+                compute_and_store_matched_jobs(uid, _text, skills, embedding)
+
+                doc.reference.update({
+                    "status":       "processed",
+                    "skills_count": len(skills),
+                    "processed_at": datetime.now(timezone.utc),
+                })
+                processed += 1
+                logger.info(f"Matches recomputed for {uid}")
+            except Exception as exc:
+                msg = f"{uid}: {exc}"
+                logger.error(f"process_pending_resumes (recompute) failed for {uid}: {exc}")
+                doc.reference.update({"status": "failed", "error": str(exc)})
+                errors.append(msg)
+            continue
+
+        storage_path = data.get("storage_path", "")
+        content_type = data.get("content_type", "application/pdf")
+        filename     = storage_path.split("/")[-1] if storage_path else "resume.pdf"
 
         try:
             from firebase_admin import storage as firebase_storage
             bucket  = firebase_storage.bucket()
             content = bucket.blob(storage_path).download_as_bytes()
 
-            from app.services.resume.skill_extractor import parse_resume
+            from app.services.resume.skill_extractor import parse_resume, generate_embedding
             _text, skills = parse_resume(filename, content)
 
             # Persist to PostgreSQL
@@ -424,8 +466,23 @@ def process_pending_resumes() -> dict:
                 )
                 conn.commit()
 
-            # Persist to Firestore
+            # Persist skills to Firestore
             sync_user_skills(uid, skills)
+
+            # Generate embedding + store resume text in Firestore
+            embedding = generate_embedding(_text)
+            if embedding and db:
+                db.collection("users").document(uid).set({
+                    "resume_text":       _text[:5000],
+                    "resume_embedding":  embedding,
+                    "resume_updated_at": datetime.now(timezone.utc),
+                }, merge=True)
+
+            # Compute and store matched jobs (non-fatal if it fails)
+            try:
+                compute_and_store_matched_jobs(uid, _text, skills, embedding)
+            except Exception as me:
+                logger.warning(f"compute_and_store_matched_jobs failed for {uid}: {me}")
 
             doc.reference.update({
                 "status":       "processed",
@@ -442,3 +499,105 @@ def process_pending_resumes() -> dict:
             errors.append(msg)
 
     return {"processed": processed, "errors": errors}
+
+
+def compute_and_store_matched_jobs(
+    uid: str,
+    resume_text: str,
+    user_skills: list[str],
+    resume_embedding: list[float],
+) -> None:
+    """
+    Batch-embed all active jobs, compute cosine + keyword similarity against
+    the user's resume embedding, and write the top-50 matches to
+    Firestore users/{uid}.matched_jobs so the frontend can read them directly.
+    """
+    import numpy as np
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import Session as SyncSession
+    from app.models.job import Job
+    from app.config import get_settings
+
+    if not resume_embedding:
+        logger.warning(f"compute_and_store_matched_jobs: no embedding for {uid}, skipping")
+        return
+
+    logger.info(f"Computing job matches for user {uid} …")
+
+    settings = get_settings()
+    pg_engine = create_engine(settings.sync_database_url)
+
+    with SyncSession(pg_engine) as session:
+        jobs = session.execute(
+            select(Job).where(Job.is_active == True)
+        ).scalars().all()
+
+    if not jobs:
+        logger.warning("compute_and_store_matched_jobs: no active jobs in DB")
+        return
+
+    resume_vec = np.array(resume_embedding, dtype=np.float32)
+    user_skills_lower = {s.lower() for s in user_skills}
+
+    # Build one text per job: title + company + skills + first 400 chars of description
+    job_texts = []
+    for job in jobs:
+        skills_str = " ".join(job.skills or [])
+        desc_snip  = (job.description or "")[:400]
+        job_texts.append(f"{job.title}\n{job.company}\n{skills_str}\n{desc_snip}")
+
+    # Batch encode (uses cached model from skill_extractor module)
+    from sentence_transformers import SentenceTransformer
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    job_vecs = model.encode(
+        job_texts,
+        normalize_embeddings=True,
+        batch_size=64,
+        show_progress_bar=False,
+    )  # shape: (N, 384)
+
+    # Cosine similarity (vectors already L2-normalised → dot product == cosine)
+    cosine_scores = job_vecs @ resume_vec  # (N,)
+
+    scored: list[dict] = []
+    for i, job in enumerate(jobs):
+        cos_s = float(cosine_scores[i])
+
+        job_skills_lower = {s.lower() for s in (job.skills or [])}
+        kw_s = (
+            len(job_skills_lower & user_skills_lower) / len(job_skills_lower)
+            if job_skills_lower else 0.0
+        )
+
+        # Blend: 60% semantic + 40% keyword overlap
+        blend = cos_s * 0.6 + kw_s * 0.4
+        if blend < 0.2:
+            continue
+
+        scored.append({
+            "id":          job.id,
+            "title":       job.title,
+            "company":     job.company,
+            "location":    job.location or "",
+            "skills":      list(job.skills or [])[:20],
+            "job_type":    job.job_type or "Full-time",
+            "salary":      job.salary or "",
+            "apply_link":  job.apply_link or "",
+            "match_score": round(blend * 100),
+            "description": (job.description or "")[:300],
+            "date_posted":  job.date_posted.isoformat()  if job.date_posted  else None,
+            "date_scraped": job.date_scraped.isoformat() if job.date_scraped else None,
+        })
+
+    scored.sort(key=lambda x: x["match_score"], reverse=True)
+    top50 = scored[:50]
+    logger.info(f"Matched {len(top50)} jobs for user {uid} (from {len(jobs)} total)")
+
+    db = get_firestore()
+    if db:
+        db.collection("users").document(uid).set({
+            "matched_jobs":            top50,
+            "matched_jobs_count":      len(top50),
+            "matched_jobs_updated_at": datetime.now(timezone.utc),
+        }, merge=True)
+        logger.info(f"Stored {len(top50)} matched jobs → Firestore users/{uid}")

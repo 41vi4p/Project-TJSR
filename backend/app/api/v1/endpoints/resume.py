@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.database import get_db
 from app.models.user import User
 from app.dependencies import get_current_user
-from app.services.resume.skill_extractor import parse_resume
+from app.services.resume.skill_extractor import parse_resume, generate_embedding
 from app.services.firebase_auth import upload_file_to_storage
 
 router = APIRouter()
@@ -77,12 +77,44 @@ async def upload_resume(
                    "Please restart the backend server to apply pending migrations.",
         ) from e
 
+    # Generate embedding + compute matches in background (non-blocking)
+    import asyncio
+    from functools import partial
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(
+        None,
+        partial(_run_matching_pipeline, user.firebase_uid, _text, skills),
+    )
+
     return {
         "skills": skills,
         "resume_url": resume_url or None,
         "count": len(skills),
         "message": f"Extracted {len(skills)} skills from your resume.",
     }
+
+
+def _run_matching_pipeline(uid: str, text: str, skills: list[str]) -> None:
+    """Sync wrapper: generate embedding and compute matched jobs (runs in executor)."""
+    try:
+        from app.services.resume.skill_extractor import generate_embedding
+        from app.services.firebase_sync import compute_and_store_matched_jobs, get_firestore
+        from datetime import datetime, timezone
+
+        embedding = generate_embedding(text)
+
+        db = get_firestore()
+        if embedding and db:
+            db.collection("users").document(uid).set({
+                "resume_text":       text[:5000],
+                "resume_embedding":  embedding,
+                "resume_updated_at": datetime.now(timezone.utc),
+            }, merge=True)
+
+        compute_and_store_matched_jobs(uid, text, skills, embedding)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(f"_run_matching_pipeline failed for {uid}: {exc}")
 
 
 @router.get("/skills")
@@ -250,6 +282,95 @@ def _bulk_score_jobs(job_ids: list[str], user_skills: list[str]):
             if matched:
                 job.match_score = round(matched / max(len(job_skills_lower), 1) * 100)
         session.commit()
+
+
+@router.get("/status")
+async def get_resume_status(user: User = Depends(get_current_user)):
+    """Check the current processing status of the resume queue entry for this user."""
+    try:
+        from app.services.firebase_sync import get_firestore
+        db = get_firestore()
+        if not db:
+            return {"status": "unknown", "message": "Firestore unavailable"}
+        doc = db.collection("resume_queue").document(user.firebase_uid).get()
+        if not doc.exists:
+            return {"status": "none", "message": "No resume queued"}
+        d = doc.to_dict() or {}
+        return {
+            "status":       d.get("status", "unknown"),
+            "skills_count": d.get("skills_count"),
+            "queued_at":    d.get("queued_at"),
+            "processed_at": d.get("processed_at"),
+            "error":        d.get("error"),
+        }
+    except Exception as exc:
+        return {"status": "error", "message": str(exc)}
+
+
+@router.get("/matched-jobs")
+async def get_matched_jobs(
+    limit: int = 50,
+    user: User = Depends(get_current_user),
+):
+    """Return the pre-computed matched jobs stored in Firestore users/{uid}.matched_jobs."""
+    try:
+        from app.services.firebase_sync import get_firestore
+        db = get_firestore()
+        if not db:
+            raise HTTPException(status_code=503, detail="Firestore unavailable")
+        doc = db.collection("users").document(user.firebase_uid).get()
+        if not doc.exists:
+            return {"jobs": [], "count": 0, "message": "Upload a resume first."}
+        d = doc.to_dict() or {}
+        jobs = d.get("matched_jobs") or []
+        updated_at = d.get("matched_jobs_updated_at")
+        return {
+            "jobs":       jobs[:limit],
+            "count":      len(jobs),
+            "updated_at": updated_at.isoformat() if hasattr(updated_at, "isoformat") else str(updated_at) if updated_at else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/recompute")
+async def recompute_matches(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-trigger matching pipeline using the stored resume embedding."""
+    import asyncio
+    from functools import partial
+
+    # Load existing data from Firestore
+    try:
+        from app.services.firebase_sync import get_firestore
+        fdb = get_firestore()
+        doc = fdb.collection("users").document(user.firebase_uid).get() if fdb else None
+        d = (doc.to_dict() or {}) if (doc and doc.exists) else {}
+        embedding  = d.get("resume_embedding", [])
+        text       = d.get("resume_text", "")
+    except Exception:
+        embedding, text = [], ""
+
+    row = await db.execute(
+        sql_text("SELECT resume_skills FROM users WHERE firebase_uid = :uid"),
+        {"uid": user.firebase_uid},
+    )
+    result = row.fetchone()
+    skills: list[str] = (result[0] or []) if result else []
+
+    if not skills and not embedding:
+        raise HTTPException(status_code=400, detail="No resume data found. Upload a resume first.")
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(
+        None,
+        partial(_run_matching_pipeline, user.firebase_uid, text, skills),
+    )
+    return {"message": "Matching started in background. Check /resume/matched-jobs in ~30 seconds."}
 
 
 @router.delete("/skills")
