@@ -993,7 +993,7 @@ export default function ResumeAnalyzerPage() {
               <h2 className="font-semibold theme-text">Overall Resume Score</h2>
             </div>
             <p className="text-xs theme-muted mb-5">
-              Upload your PDF / TXT resume or paste the text below. Our NLP engine checks sections, action verbs, quantification and length.
+              Upload your PDF resume or paste the text below. Our NLP engine checks sections, action verbs, quantification and length.
             </p>
 
             {/* Drag-drop zone */}
@@ -1036,11 +1036,11 @@ export default function ResumeAnalyzerPage() {
                 <>
                   <Upload size={32} className="text-yellow-500 mb-2" />
                   <p className="text-sm font-medium theme-text">Drag & drop or click to upload</p>
-                  <p className="text-xs mt-1 theme-muted">PDF, DOCX or TXT up to 5 MB</p>
+                  <p className="text-xs mt-1 theme-muted">PDF up to 5 MB</p>
                 </>
               )}
             </div>
-            <input ref={fileRef} type="file" accept=".pdf,.txt,.docx" className="hidden"
+            <input ref={fileRef} type="file" accept=".pdf" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
 
             <div className="flex items-center gap-3 mb-3">

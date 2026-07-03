@@ -236,23 +236,26 @@ export async function POST(req: NextRequest) {
       const file = fd.get('file') as File | null;
       if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
       
-      if (file.name.endsWith('.pdf')) {
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const parser = new PDFParse({ data: buffer });
-          const parsed = await parser.getText();
-          await parser.destroy();
-          text = parsed.text ?? '';
-        } catch (pdfErr) {
-          console.error('[analyze-local] PDF parse error:', pdfErr instanceof Error ? pdfErr.message : pdfErr);
-          return NextResponse.json(
-            { error: 'Could not extract text from this PDF. Please use "Paste text" instead.' },
-            { status: 422 }
-          );
-        }
-      } else {
-        text = await file.text();
+      if (!file.name.endsWith('.pdf')) {
+        return NextResponse.json(
+          { error: 'Only PDF files are supported. Please upload a .pdf or use "Paste text" instead.' },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const parser = new PDFParse({ data: buffer });
+        const parsed = await parser.getText();
+        await parser.destroy();
+        text = parsed.text ?? '';
+      } catch (pdfErr) {
+        console.error('[analyze-local] PDF parse error:', pdfErr instanceof Error ? pdfErr.message : pdfErr);
+        return NextResponse.json(
+          { error: 'Could not extract text from this PDF. Please use "Paste text" instead.' },
+          { status: 422 }
+        );
       }
     } else {
       text = (await req.json()).text ?? '';

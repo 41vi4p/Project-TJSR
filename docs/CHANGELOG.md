@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.9 — 2026-07-03
+- **Fix: toast notifications were completely silent app-wide.** `sonner`'s `<Toaster />` was never mounted in `app/layout.tsx`, so every `toast.success()`/`toast.error()` call (resume analysis, save, delete, matching status, etc.) was a no-op. This made the resume Score tab feel broken — the analysis actually ran and completed, but gave zero feedback. Mounted `<Toaster position="top-right" richColors />` in the root layout.
+- **Resume upload restricted to PDF only.** `frontend/app/api/resume/analyze/route.ts` previously read any non-`.pdf` file (including `.docx`, a ZIP binary) as raw UTF-8 text via `file.text()`, producing garbage extraction with no error. Non-PDF uploads now return a clean `400` telling the user to upload a `.pdf` or use "Paste text" instead. Dropzone `accept` attribute and copy updated from `.pdf,.txt,.docx` to `.pdf` only.
+
 ## v1.0.8 — 2026-07-03
 - **README overhaul**: added an "Architecture" section documenting the three-deployable split (public `frontend/` on Vercel, local `backend/`, local-only `admin-ui/`) with an ASCII diagram showing Firebase Firestore/Auth/Storage as the sole bridge between them.
 - Updated Stack table to separate backend RAG LLM (Ollama) from public chat LLM (Groq, user-supplied key) and to list Firestore explicitly as the data bridge.
