@@ -35,6 +35,9 @@ export function Navbar() {
               <Link href="#features" className="text-gray-300 hover:text-white smooth-transition font-medium">
                 Features
               </Link>
+              <Link href="/about" className="text-gray-300 hover:text-white smooth-transition font-medium">
+                About
+              </Link>
             </div>
           </div>
 
@@ -62,6 +65,9 @@ export function Navbar() {
             </Link>
             <Link href="#features" className="block text-gray-300 hover:text-white py-2">
               Features
+            </Link>
+            <Link href="/about" className="block text-gray-300 hover:text-white py-2">
+              About
             </Link>
 
             <Link href="/auth" className="block w-full px-6 py-2 bg-[#FACC15] hover:bg-[#EAB308] rounded-lg text-[#1F2937] font-semibold text-center hover:shadow-lg smooth-transition mt-4">

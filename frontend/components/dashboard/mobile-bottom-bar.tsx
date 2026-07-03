@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Briefcase, FileText, BotMessageSquare, MoreHorizontal,
-  Zap, MessageSquare, Network, Bug, Settings, LogOut, Sun, Moon, X,
+  Zap, MessageSquare, Network, Bug, Settings, Info, LogOut, Sun, Moon, X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { signOut } from 'firebase/auth';
@@ -26,6 +26,7 @@ const MORE_ITEMS = [
   { icon: Network,      label: 'Graph',    href: '/dashboard/graph' },
   { icon: Bug,          label: 'Debug',    href: '/dashboard/debug' },
   { icon: Settings,     label: 'Settings', href: '/dashboard/settings' },
+  { icon: Info,         label: 'About',    href: '/about' },
 ];
 
 export function MobileBottomBar() {

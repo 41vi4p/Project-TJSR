@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Briefcase, Settings, FileText, LogOut,
-  BotMessageSquare,
+  BotMessageSquare, Info,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
@@ -18,6 +18,7 @@ const navItems = [
   { icon: BotMessageSquare, label: 'AI Chat',        href: '/dashboard/chat' },
   { icon: FileText,         label: 'Resume Analyzer',href: '/dashboard/resume' },
   { icon: Settings,         label: 'Settings',       href: '/dashboard/settings' },
+  { icon: Info,             label: 'About',          href: '/about' },
 ];
 
 export function Sidebar() {

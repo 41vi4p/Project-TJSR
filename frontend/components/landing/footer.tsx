@@ -38,7 +38,7 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Company</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="#" className="hover:text-white smooth-transition">About</Link></li>
+              <li><Link href="/about" className="hover:text-white smooth-transition">About</Link></li>
               <li><Link href="#" className="hover:text-white smooth-transition">Blog</Link></li>
               <li><Link href="#" className="hover:text-white smooth-transition">Careers</Link></li>
               <li><Link href="#" className="hover:text-white smooth-transition">Contact</Link></li>
@@ -65,7 +65,7 @@ export function Footer() {
             <a href="#" className="text-gray-400 hover:text-purple-400 smooth-transition">
               <Twitter size={20} />
             </a>
-            <a href="#" className="text-gray-400 hover:text-purple-400 smooth-transition">
+            <a href="https://github.com/41vi4p/Project-TJSR" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-purple-400 smooth-transition">
               <Github size={20} />
             </a>
             <a href="#" className="text-gray-400 hover:text-purple-400 smooth-transition">
