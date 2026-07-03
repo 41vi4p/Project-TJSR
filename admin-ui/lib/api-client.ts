@@ -165,6 +165,5 @@ export const logsApi = {
 
 export const firebaseAdminApi = {
   syncStats: () => api.post('/firebase/sync/stats', {}),
-  syncGraph: () => api.post('/firebase/sync/graph', {}),
   bulkSyncJobs: () => api.post('/firebase/sync/bulk-jobs', {}),
 };

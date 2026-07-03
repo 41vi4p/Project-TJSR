@@ -42,13 +42,6 @@ export interface FSDashboardStats {
   last_updated: Timestamp;
 }
 
-export interface FSGraphSnapshot {
-  nodes: { id: string; label: string; type: string; color: string; size: number; properties: Record<string, unknown> }[];
-  edges: { source: string; target: string; label: string }[];
-  stats: Record<string, number>;
-  last_updated: Timestamp;
-}
-
 export interface FSMatchedJob {
   id: string;
   title: string;
@@ -122,13 +115,6 @@ export async function fetchJobs(filters: JobFilters = {}): Promise<{
 export async function fetchDashboardStats(): Promise<FSDashboardStats | null> {
   const snap = await getDoc(doc(db, 'stats', 'dashboard'));
   return snap.exists() ? (snap.data() as FSDashboardStats) : null;
-}
-
-// ─── Graph ────────────────────────────────────────────────────────────────────
-
-export async function fetchGraphSnapshot(): Promise<FSGraphSnapshot | null> {
-  const snap = await getDoc(doc(db, 'graph', 'snapshot'));
-  return snap.exists() ? (snap.data() as FSGraphSnapshot) : null;
 }
 
 // ─── User profile ─────────────────────────────────────────────────────────────

@@ -3,13 +3,12 @@ Firebase Firestore sync service.
 
 The local backend is the sole writer to Firestore. After each job is scraped
 and processed it is pushed here so the public Vercel frontend can read job
-data, stats, and graph snapshots without touching the local backend directly.
+data and stats without touching the local backend directly.
 
 Public collection layout
 ─────────────────────────
 jobs/{jobId}               — one document per job
 stats/dashboard            — aggregated dashboard counters
-graph/snapshot             — latest Neo4j export (nodes + edges)
 users/{firebaseUid}        — resume_skills + prefs (owner-only via security rules)
 resume_queue/{firebaseUid} — upload queue written by public frontend, consumed here
 """
@@ -21,15 +20,6 @@ from datetime import datetime, timezone, timedelta
 logger = logging.getLogger(__name__)
 
 _firestore_client = None
-
-_NODE_COLORS = {
-    "company":  "#8b5cf6",
-    "job":      "#0ea5e9",
-    "skill":    "#10b981",
-    "location": "#f59e0b",
-    "portal":   "#ef4444",
-}
-_NODE_SIZES = {"company": 8, "job": 5, "skill": 4, "location": 6, "portal": 5}
 
 
 # ─── Client ──────────────────────────────────────────────────────────────────
@@ -252,94 +242,6 @@ def sync_stats() -> bool:
 
     except Exception as exc:
         logger.error(f"sync_stats failed: {exc}")
-        return False
-
-
-# ─── Graph snapshot ──────────────────────────────────────────────────────────
-
-def sync_graph_snapshot(node_limit: int = 300) -> bool:
-    """
-    Export a Neo4j graph snapshot to Firestore `graph/snapshot`.
-    Excludes User nodes (private). Limits to `node_limit` nodes to stay
-    well under Firestore's 1 MB document ceiling.
-    """
-    db = get_firestore()
-    if not db:
-        return False
-
-    try:
-        from app.services.graph.neo4j_client import run_query
-
-        raw_nodes = run_query(
-            f"MATCH (n) WHERE NOT n:User "
-            f"RETURN id(n) AS id, labels(n) AS labels, properties(n) AS props "
-            f"LIMIT {node_limit}"
-        )
-
-        node_ids: set[str] = set()
-        nodes: list[dict] = []
-        for r in raw_nodes:
-            nid = str(r.get("id", ""))
-            if not nid or nid in node_ids:
-                continue
-            node_ids.add(nid)
-
-            labels    = r.get("labels", [])
-            node_type = labels[0].lower() if labels else "unknown"
-            props     = dict(r.get("props") or {})
-            # Drop heavy text fields before writing to Firestore
-            props.pop("raw_content",  None)
-            props.pop("description",  None)
-            label = props.get("name") or props.get("title") or props.get("job_id") or nid[:8]
-
-            nodes.append({
-                "id":         nid,
-                "label":      label,
-                "type":       node_type,
-                "color":      _NODE_COLORS.get(node_type, "#888"),
-                "size":       _NODE_SIZES.get(node_type, 4),
-                "properties": props,
-            })
-
-        # Fetch edges only between nodes we already have
-        numeric_ids = [int(nid) for nid in node_ids if nid.isdigit()]
-        raw_edges = run_query(
-            f"MATCH (a)-[r]->(b) WHERE id(a) IN $ids AND id(b) IN $ids "
-            f"RETURN id(a) AS source_id, id(b) AS target_id, type(r) AS rel_type "
-            f"LIMIT {node_limit * 2}",
-            {"ids": numeric_ids},
-        )
-
-        edges: list[dict] = []
-        seen_edges: set[str] = set()
-        for r in raw_edges:
-            src = str(r.get("source_id", ""))
-            tgt = str(r.get("target_id", ""))
-            rel = r.get("rel_type", "RELATED")
-            key = f"{src}-{rel}-{tgt}"
-            if src in node_ids and tgt in node_ids and key not in seen_edges:
-                seen_edges.add(key)
-                edges.append({"source": src, "target": tgt, "label": rel})
-
-        snapshot = {
-            "nodes": nodes,
-            "edges": edges,
-            "stats": {
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-                "companies":  sum(1 for n in nodes if n["type"] == "company"),
-                "jobs":       sum(1 for n in nodes if n["type"] == "job"),
-                "skills":     sum(1 for n in nodes if n["type"] == "skill"),
-            },
-            "last_updated": datetime.now(timezone.utc),
-        }
-
-        db.collection("graph").document("snapshot").set(snapshot)
-        logger.info(f"Synced graph snapshot → Firestore  nodes={len(nodes)} edges={len(edges)}")
-        return True
-
-    except Exception as exc:
-        logger.error(f"sync_graph_snapshot failed: {exc}")
         return False
 
 

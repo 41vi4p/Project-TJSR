@@ -18,26 +18,6 @@ services:
     networks:
       - tjsr-network
 
-  neo4j:
-    image: neo4j:5-community
-    container_name: tjsr-neo4j
-    environment:
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-tjsr_secret}
-      NEO4J_PLUGINS: '["apoc"]'
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-    healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-tjsr_secret}", "RETURN 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-    networks:
-      - tjsr-network
-
   qdrant:
     image: qdrant/qdrant:latest
     container_name: tjsr-qdrant
@@ -88,8 +68,6 @@ services:
 
 volumes:
   postgres_data:
-  neo4j_data:
-  neo4j_logs:
   qdrant_data:
   redis_data:
 

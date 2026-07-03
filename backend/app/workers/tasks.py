@@ -30,16 +30,9 @@ def embed_job(job_id: str):
     return index_job(job_id)
 
 
-@celery_app.task(name="app.workers.tasks.add_to_graph")
-def add_to_graph(job_id: str):
-    """Add job to Neo4j knowledge graph."""
-    from app.services.graph.graph_builder import add_job_to_graph
-    return add_job_to_graph(job_id)
-
-
 @celery_app.task(name="app.workers.tasks.process_job_pipeline")
 def process_job_pipeline(job_id: str):
-    """Full pipeline: classify -> embed -> graph -> compute match scores -> Firestore sync."""
+    """Full pipeline: classify -> embed -> compute match scores -> Firestore sync."""
     # Run classification inline (fast, needed for match_score)
     try:
         from app.services.classifier.predictor import classify_job_by_id
@@ -53,7 +46,7 @@ def process_job_pipeline(job_id: str):
     except Exception as e:
         logger.warning(f"Match score computation failed for {job_id}: {e}")
 
-    # Queue embedding and graph (non-critical, fire-and-forget)
+    # Queue embedding (non-critical, fire-and-forget)
     try:
         embed_job.delay(job_id)
     except Exception:
@@ -62,11 +55,6 @@ def process_job_pipeline(job_id: str):
             index_job(job_id)
         except Exception as e:
             logger.warning(f"Embedding failed for {job_id}: {e}")
-
-    try:
-        add_to_graph.delay(job_id)
-    except Exception:
-        pass  # Graph is non-critical
 
     # Push fully-processed job to Firestore for the public frontend
     try:
@@ -177,13 +165,9 @@ def scrape_all_sources():
     except Exception as e:
         logger.warning(f"Beat: job archival failed: {e}")
 
-    # Refresh Firestore stats + graph snapshot after every scrape cycle
+    # Refresh Firestore stats after every scrape cycle
     try:
         sync_stats_to_firebase.delay()
-    except Exception:
-        pass
-    try:
-        sync_graph_to_firebase.delay()
     except Exception:
         pass
 
@@ -211,14 +195,6 @@ def sync_stats_to_firebase():
     """Push aggregated dashboard stats from PostgreSQL → Firestore stats/dashboard."""
     from app.services.firebase_sync import sync_stats
     ok = sync_stats()
-    return {"ok": ok}
-
-
-@celery_app.task(name="app.workers.tasks.sync_graph_to_firebase")
-def sync_graph_to_firebase():
-    """Export Neo4j graph snapshot → Firestore graph/snapshot."""
-    from app.services.firebase_sync import sync_graph_snapshot
-    ok = sync_graph_snapshot()
     return {"ok": ok}
 
 

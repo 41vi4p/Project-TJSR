@@ -22,7 +22,6 @@ TJSR is a full-stack AI-powered job discovery platform that:
 - **Background-checks companies** before you apply — cited research reports with scam red flags, culture signals, and role-specific analysis
 - **Notifies** you via in-app notifications, Telegram bot, and email digest
 - **Lets you chat** with an AI assistant (Ollama/RAG) about the job database
-- **Visualises** company–skill relationships in a Neo4j knowledge graph
 
 ---
 
@@ -56,18 +55,18 @@ TJSR is split into three deployables that never talk to each other directly — 
         │     Local Backend        │◄──│   Admin UI (local only) │
         │  FastAPI + Celery Beat   │   │  Next.js — scraper ctrl,│
         │  PostgreSQL · Qdrant ·   │   │  bot/mail, debug logs,  │
-        │  Neo4j · Redis · Ollama  │   │  manual Firebase sync   │
+        │  Redis · Ollama          │   │  manual Firebase sync   │
         │  Scrapers → Classifier → │   └─────────────────────────┘
-        │  Matcher → Graph → Sync  │
+        │  Matcher → Sync          │
         └───────────────────────────┘
 ```
 
-**Why this split:** the backend needs a real machine (Postgres, Qdrant, Neo4j, Redis, Ollama, headless browsers for scraping) so it stays local/self-hosted. The public frontend needs to be reachable on the internet without exposing that machine, so it's deployed to Vercel and speaks only to Firestore — never to `localhost:8000`. The admin UI is the only piece allowed to call the backend directly, and it's meant to run on the same machine as the backend.
+**Why this split:** the backend needs a real machine (Postgres, Qdrant, Redis, Ollama, headless browsers for scraping) so it stays local/self-hosted. The public frontend needs to be reachable on the internet without exposing that machine, so it's deployed to Vercel and speaks only to Firestore — never to `localhost:8000`. The admin UI is the only piece allowed to call the backend directly, and it's meant to run on the same machine as the backend.
 
 | Piece | Talks to | Deployed |
 |-------|----------|----------|
 | `frontend/` (public) | Firestore, Storage, Auth, Groq (chat, via its own API route) | Vercel |
-| `backend/` | PostgreSQL, Redis, Qdrant, Neo4j, Ollama, scrapes the web, **writes** to Firestore | Local / self-hosted (Docker Compose) |
+| `backend/` | PostgreSQL, Redis, Qdrant, Ollama, scrapes the web, **writes** to Firestore | Local / self-hosted (Docker Compose) |
 | `admin-ui/` | `localhost:8000` (backend REST API) directly, plus Firebase Auth | Local only, port 3001 |
 
 ---
@@ -81,13 +80,12 @@ TJSR is split into three deployables that never talk to each other directly — 
 | Backend | FastAPI (async), SQLAlchemy 2.0, Pydantic v2 |
 | Primary DB | PostgreSQL 16 |
 | Vector DB | Qdrant (384-dim MiniLM embeddings) |
-| Graph DB | Neo4j 5 |
 | Queue | Celery + Redis |
 | LLM (chat + company research) | Groq (user-supplied API key — per-user, never shared) |
 | LLM (backend RAG) | Ollama (local, qwen3) |
 | Search | SearXNG (self-hosted, company research collectors) |
 | ML | Fine-tuned DistilBERT (tech/non-tech classifier) |
-| Data bridge | Firebase Firestore (jobs, stats, graph snapshot, user profiles, resume queue) |
+| Data bridge | Firebase Firestore (jobs, stats, user profiles, resume queue) |
 | Auth | Firebase Authentication |
 | Storage | Firebase Storage (resumes) |
 
@@ -151,7 +149,7 @@ cp .env.example .env
 ### 2. Start infrastructure
 
 ```bash
-docker-compose up -d   # PostgreSQL, Redis, Neo4j, Qdrant, SearXNG
+docker-compose up -d   # PostgreSQL, Redis, Qdrant, SearXNG
 ```
 
 ### 3. Backend
@@ -207,7 +205,6 @@ Controls scraper runs, bot/mail settings, debug logs, and manual Firebase sync. 
 | `OLLAMA_BASE_URL` | Ollama server URL | Optional |
 | `OLLAMA_MODEL` | Model name (default: qwen3:latest) | Optional |
 | `QDRANT_HOST` | Qdrant host | Optional |
-| `NEO4J_URI` | Neo4j bolt URI | Optional |
 | `SEARXNG_URL` | SearXNG URL for company research (default `http://localhost:8080`) | Optional |
 | `GROQ_MODEL` | Groq model for research reports (default `llama-3.3-70b-versatile`) | Optional |
 | `SMTP_HOST` | SMTP server for email digests | Optional |
@@ -248,11 +245,10 @@ Project-TJSR/
 │       │   ├── scraper/         # 10 scraper engines + manager
 │       │   ├── classifier/      # DistilBERT + keyword classifier
 │       │   ├── rag/             # Qdrant embeddings + chat engine
-│       │   ├── graph/           # Neo4j knowledge graph
 │       │   ├── telegram/        # Telegram bot
 │       │   ├── resume/          # Skill extraction
 │       │   ├── research/        # Company background checks (collectors, red flags, Groq synthesis)
-│       │   └── firebase_sync.py # Pushes jobs/stats/graph/users to Firestore
+│       │   └── firebase_sync.py # Pushes jobs/stats/users to Firestore
 │       └── workers/             # Celery tasks + Beat schedule
 ├── frontend/                     # Public (Vercel) — reads Firestore only
 │   ├── app/dashboard/           # Next.js App Router pages

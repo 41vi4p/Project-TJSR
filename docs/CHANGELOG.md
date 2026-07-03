@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.13 — 2026-07-04
+**Neo4j and the knowledge-graph feature removed entirely** (prep for Raspberry Pi home-lab deployment — frees the single largest RAM consumer, a ~1–1.5 GB JVM).
+
+Rationale: the graph had no remaining consumers. The public frontend's graph page was already reduced to a `/dashboard` redirect in the June 20 release, `fetchGraphSnapshot` was never called anywhere, match scoring uses a Postgres skill-overlap query, and RAG retrieval uses Qdrant — Neo4j was being written to on every job with nothing ever reading it back.
+
+- **Backend removed**: `app/services/graph/` (client, queries, builder), `/api/v1/graph/*` endpoints + router entry, `app/schemas/graph.py`, `add_to_graph` Celery task and its call in `process_job_pipeline`, `sync_graph_to_firebase` task + its beat schedule (every 6h) + its trigger in `scrape_all_sources`, `sync_graph_snapshot` in `firebase_sync.py`, `/firebase/sync/graph` admin endpoint, Neo4j health-check probe, `neo4j_*` settings, `neo4j==5.27.0` dependency.
+- **Schema**: `Job.neo4j_node_id` column removed from the model. Existing databases keep the (nullable, now-unused) column harmlessly; no migration required. New installs never create it.
+- **Infra**: `neo4j` service and `neo4j_data`/`neo4j_logs` volumes removed from docker-compose; `NEO4J_*` removed from `.env.example`.
+- **Firestore**: `graph/{docId}` read rule removed from `firestore.rules` (redeploy rules with `firebase deploy --only firestore:rules`). The orphaned `graph/snapshot` document can be deleted manually from the console.
+- **Frontend cleanup**: dead "Knowledge Graph" nav links removed from topbar and mobile more-menu (they pointed at the redirect stub, which is kept for old bookmarks); `FSGraphSnapshot` + `fetchGraphSnapshot` dead helpers removed from `lib/firestore.ts`; About page no longer advertises the Knowledge Graph feature or lists Neo4j in the stack.
+- **Admin UI**: "Sync Graph Snapshot" tile and `syncGraph` API call removed from the Firebase sync page.
+- Backend FastAPI `version` bumped to 1.0.13 (was stale at 1.0.0); README architecture diagram, stack table, env-var table, and project tree updated.
+
 ## v1.0.12 — 2026-07-03
 Company Check research depth upgrades (after CarWale test returned empty financials):
 - **New Wikipedia collector** — keyless and immune to search-engine suspensions; resolves brands to their parent's article when they have no page of their own (CarWale → CarTrade.com) by accepting candidates whose article text mentions the company. Feeds ownership/acquisition/revenue facts to the financial section.

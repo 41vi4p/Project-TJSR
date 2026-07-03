@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Briefcase, FileText, BotMessageSquare, MoreHorizontal,
-  Zap, MessageSquare, Network, Bug, Settings, Info, ShieldCheck, LogOut, Sun, Moon, X,
+  Zap, MessageSquare, Bug, Settings, Info, ShieldCheck, LogOut, Sun, Moon, X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { signOut } from 'firebase/auth';
@@ -23,7 +23,6 @@ const PRIMARY = [
 const MORE_ITEMS = [
   { icon: Zap,          label: 'Scraper',  href: '/dashboard/scraper' },
   { icon: MessageSquare,label: 'Bot',      href: '/dashboard/bot' },
-  { icon: Network,      label: 'Graph',    href: '/dashboard/graph' },
   { icon: Bug,          label: 'Debug',    href: '/dashboard/debug' },
   { icon: ShieldCheck,  label: 'Company',  href: '/dashboard/research' },
   { icon: Settings,     label: 'Settings', href: '/dashboard/settings' },

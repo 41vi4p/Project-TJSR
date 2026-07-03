@@ -11,11 +11,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tjsr:tjsr_secret@localhost:5432/tjsr_db"
     sync_database_url: str = "postgresql://tjsr:tjsr_secret@localhost:5432/tjsr_db"
 
-    # Neo4j
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = "tjsr_secret"
-
     # Qdrant
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333

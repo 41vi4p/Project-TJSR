@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Database, RefreshCw, Upload, BarChart2,
+  Database, Upload, BarChart2,
   CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { firebaseAdminApi } from '@/lib/api-client';
@@ -12,7 +12,6 @@ const IDLE: ActionState = { loading: false, status: 'idle', message: '' };
 
 export default function FirebaseSyncPage() {
   const [statsState, setStatsState] = useState<ActionState>(IDLE);
-  const [graphState, setGraphState] = useState<ActionState>(IDLE);
   const [bulkState,  setBulkState]  = useState<ActionState>(IDLE);
 
   const run = async (
@@ -36,14 +35,6 @@ export default function FirebaseSyncPage() {
       state: statsState,
       action: () => run(firebaseAdminApi.syncStats, setStatsState),
       buttonLabel: 'Sync Stats Now',
-    },
-    {
-      icon: RefreshCw,
-      label: 'Sync Graph Snapshot',
-      desc: 'Reads up to 300 nodes from Neo4j → writes to Firestore graph/snapshot',
-      state: graphState,
-      action: () => run(firebaseAdminApi.syncGraph, setGraphState),
-      buttonLabel: 'Sync Graph Now',
     },
     {
       icon: Upload,

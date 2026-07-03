@@ -24,20 +24,6 @@ async def trigger_stats_sync(
     return {"status": "queued", "message": "Stats sync started in background"}
 
 
-@router.post("/sync/graph")
-async def trigger_graph_sync(
-    background_tasks: BackgroundTasks,
-    user: User = Depends(get_current_user),
-):
-    """Immediately export Neo4j graph snapshot to Firestore (runs in background)."""
-    def _run():
-        from app.services.firebase_sync import sync_graph_snapshot
-        sync_graph_snapshot()
-
-    background_tasks.add_task(_run)
-    return {"status": "queued", "message": "Graph sync started in background"}
-
-
 @router.post("/sync/bulk-jobs")
 async def trigger_bulk_jobs_sync(
     background_tasks: BackgroundTasks,

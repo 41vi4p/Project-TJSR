@@ -30,7 +30,6 @@ class Job(Base):
     )
     raw_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    neo4j_node_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

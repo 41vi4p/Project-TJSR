@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Bell, Search, Settings, LogOut, ChevronDown,
   Menu, X, Zap, FileText, Bug, Home, Briefcase,
-  Sun, Moon, MessageSquare, Network, BotMessageSquare,
+  Sun, Moon, MessageSquare, BotMessageSquare,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
@@ -26,7 +26,6 @@ const primaryNavItems = [
 const toolsItems = [
   { label: 'AI Chat',        href: '/dashboard/chat',     icon: BotMessageSquare },
   { label: 'Bot Control',    href: '/dashboard/bot',      icon: MessageSquare },
-  { label: 'Knowledge Graph',href: '/dashboard/graph',    icon: Network },
   { label: 'Scraper Control',href: '/dashboard/scraper',  icon: Zap },
   { label: 'Debug Logs',     href: '/dashboard/debug',    icon: Bug },
   { label: 'Settings',       href: '/dashboard/settings', icon: Settings },

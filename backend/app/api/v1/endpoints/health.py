@@ -29,18 +29,6 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         services["redis"] = f"unhealthy: {e}"
 
-    # Neo4j
-    try:
-        from app.config import get_settings
-        settings = get_settings()
-        from neo4j import GraphDatabase
-        driver = GraphDatabase.driver(settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password))
-        driver.verify_connectivity()
-        services["neo4j"] = "healthy"
-        driver.close()
-    except Exception as e:
-        services["neo4j"] = f"unhealthy: {e}"
-
     # Qdrant
     try:
         from qdrant_client import QdrantClient

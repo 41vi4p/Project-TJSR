@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
-  Search, Brain, Target, BellRing, MessageSquare, Network,
+  Search, Brain, Target, BellRing, MessageSquare,
   Server, Cloud, Shield, Github, ArrowRight, Database, Bot, ShieldCheck,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/navbar';
@@ -40,7 +40,6 @@ const features = [
   { icon: Brain, title: 'AI Job Matching', description: 'Hybrid keyword + semantic scoring surfaces the roles that actually fit your skills.' },
   { icon: BellRing, title: 'Instant Alerts', description: 'Get notified the moment a job scoring ≥40% skill overlap is discovered.' },
   { icon: MessageSquare, title: 'RAG Chat', description: 'Ask an AI assistant about the job database — grounded in the top semantically similar postings.' },
-  { icon: Network, title: 'Knowledge Graph', description: 'A Neo4j graph of company–skill relationships, visualised right in the dashboard.' },
   { icon: Bot, title: 'Telegram Bot', description: 'Daily digests, instant match alerts, and chatbot Q&A without opening the app.' },
   { icon: Shield, title: 'Resume Analysis', description: 'Upload a PDF and get an ATS-style score, section breakdown, and improvement suggestions.' },
 ];
@@ -48,7 +47,7 @@ const features = [
 const stack = [
   { category: 'Frontend', items: ['Next.js 16', 'React', 'Tailwind v4', 'TanStack Query'] },
   { category: 'Backend', items: ['FastAPI', 'SQLAlchemy 2.0', 'Celery', 'Redis'] },
-  { category: 'Data', items: ['PostgreSQL 16', 'Qdrant', 'Neo4j 5', 'Firebase Firestore'] },
+  { category: 'Data', items: ['PostgreSQL 16', 'Qdrant', 'Firebase Firestore'] },
   { category: 'AI / ML', items: ['Fine-tuned DistilBERT', 'Ollama (RAG)', 'Groq (chat)'] },
 ];
 
@@ -63,7 +62,7 @@ const deployables = [
     icon: Server,
     title: 'Backend',
     subtitle: 'Self-hosted',
-    description: 'FastAPI + Celery does the heavy lifting: scraping, classification, matching, and building the knowledge graph. Runs against Postgres, Qdrant, Neo4j and Ollama, then pushes clean results into Firestore.',
+    description: 'FastAPI + Celery does the heavy lifting: scraping, classification, and matching. Runs against Postgres and Qdrant, then pushes clean results into Firestore.',
   },
   {
     icon: Database,
