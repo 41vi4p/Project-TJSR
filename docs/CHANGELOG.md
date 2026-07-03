@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.8 — 2026-07-03
+- **README overhaul**: added an "Architecture" section documenting the three-deployable split (public `frontend/` on Vercel, local `backend/`, local-only `admin-ui/`) with an ASCII diagram showing Firebase Firestore/Auth/Storage as the sole bridge between them.
+- Updated Stack table to separate backend RAG LLM (Ollama) from public chat LLM (Groq, user-supplied key) and to list Firestore explicitly as the data bridge.
+- Updated Project Structure tree to include `admin-ui/`, `firestore.rules`, and `firestore.indexes.json`.
+- Updated Quick Start with a step for running the admin UI (port 3001).
+- Updated Environment Variables with a dedicated Admin UI section and simplified the frontend table (no backend URL needed on the public frontend).
+
 ## v1.0.7 — 2026-06-01
 - **Bot & Mail Control page** — unified page replacing the old Bot Control page. Sections: Telegram connect/disconnect/digest settings, Email Digest List (add/remove subscribers, send digest now), Notification Preferences.
 - **Email digest backend** — `POST /bot/send-email-digest` sends personalised HTML job digest to all addresses in the user's email list via SMTP. Returns preview if SMTP not configured.

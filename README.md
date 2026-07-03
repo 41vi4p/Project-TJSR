@@ -1,6 +1,6 @@
 # TJSR — Tracker for Job Search & Reporting
 
-[![Version](https://img.shields.io/badge/version-1.0.6-yellow.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.8-yellow.svg)](docs/CHANGELOG.md)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)](https://python.org)
@@ -25,18 +25,67 @@ TJSR is a full-stack AI-powered job discovery platform that:
 
 ---
 
+## Architecture
+
+TJSR is split into three deployables that never talk to each other directly — **Firebase (Firestore + Auth + Storage) is the only bridge between them**. The local backend does all the heavy lifting (scraping, classification, matching, graph building) and pushes results into Firestore; the public frontend only ever reads from Firestore, so it can be deployed to Vercel with zero dependency on the local backend being online. Admin-only controls (scraper triggers, bot config, debug logs, manual Firebase sync) live in a separate local-only admin UI that talks to the backend directly.
+
+```
+                     ┌────────────────────────────┐
+                     │   Public Frontend (Vercel)  │
+                     │  Next.js — Dashboard, Jobs, │
+                     │  Resume, Chat, Graph, Auth  │
+                     └──────────────┬──────────────┘
+                                    │ reads / writes
+                                    │ (client SDK)
+                                    ▼
+                     ┌────────────────────────────┐
+                     │   Firebase (the bridge)     │
+                     │  • Firestore: jobs,         │
+                     │    stats/dashboard,         │
+                     │    graph/snapshot,          │
+                     │    users/{uid},              │
+                     │    resume_queue/{uid}       │
+                     │  • Authentication            │
+                     │  • Storage (resumes)         │
+                     └──────┬───────────────┬───────┘
+                writes ▲    │               │ reads
+                (sync) │    │ triggers      ▼ (poll)
+                       │    ▼ (localhost:8000)
+        ┌──────────────┴──────────┐   ┌─────────────────────────┐
+        │     Local Backend        │◄──│   Admin UI (local only) │
+        │  FastAPI + Celery Beat   │   │  Next.js — scraper ctrl,│
+        │  PostgreSQL · Qdrant ·   │   │  bot/mail, debug logs,  │
+        │  Neo4j · Redis · Ollama  │   │  manual Firebase sync   │
+        │  Scrapers → Classifier → │   └─────────────────────────┘
+        │  Matcher → Graph → Sync  │
+        └───────────────────────────┘
+```
+
+**Why this split:** the backend needs a real machine (Postgres, Qdrant, Neo4j, Redis, Ollama, headless browsers for scraping) so it stays local/self-hosted. The public frontend needs to be reachable on the internet without exposing that machine, so it's deployed to Vercel and speaks only to Firestore — never to `localhost:8000`. The admin UI is the only piece allowed to call the backend directly, and it's meant to run on the same machine as the backend.
+
+| Piece | Talks to | Deployed |
+|-------|----------|----------|
+| `frontend/` (public) | Firestore, Storage, Auth, Groq (chat, via its own API route) | Vercel |
+| `backend/` | PostgreSQL, Redis, Qdrant, Neo4j, Ollama, scrapes the web, **writes** to Firestore | Local / self-hosted (Docker Compose) |
+| `admin-ui/` | `localhost:8000` (backend REST API) directly, plus Firebase Auth | Local only, port 3001 |
+
+---
+
 ## Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 16 (App Router), React, Tailwind v4, TanStack Query |
+| Admin UI | Next.js 16, calls backend REST API directly (localhost:8000) |
 | Backend | FastAPI (async), SQLAlchemy 2.0, Pydantic v2 |
 | Primary DB | PostgreSQL 16 |
 | Vector DB | Qdrant (384-dim MiniLM embeddings) |
 | Graph DB | Neo4j 5 |
 | Queue | Celery + Redis |
-| LLM | Ollama (local, qwen3) with RAG |
+| LLM (chat) | Groq (public frontend, user-supplied API key) |
+| LLM (backend RAG) | Ollama (local, qwen3) |
 | ML | Fine-tuned DistilBERT (tech/non-tech classifier) |
+| Data bridge | Firebase Firestore (jobs, stats, graph snapshot, user profiles, resume queue) |
 | Auth | Firebase Authentication |
 | Storage | Firebase Storage (resumes) |
 
@@ -113,13 +162,23 @@ celery -A app.workers.celery_app worker --loglevel=info &
 celery -A app.workers.celery_app beat --loglevel=info
 ```
 
-### 5. Frontend
+### 5. Frontend (public)
 
 ```bash
 cd frontend
 npm install
 npm run dev   # http://localhost:3000
 ```
+
+### 6. Admin UI (local only, optional)
+
+```bash
+cd admin-ui
+npm install
+npm run dev   # http://localhost:3001
+```
+
+Controls scraper runs, bot/mail settings, debug logs, and manual Firebase sync. Calls the backend directly at `localhost:8000` — never deployed publicly.
 
 ---
 
@@ -151,8 +210,17 @@ npm run dev   # http://localhost:3000
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_BACKEND_URL` | Backend API URL |
-| `NEXT_PUBLIC_FIREBASE_*` | Firebase web config |
+| `NEXT_PUBLIC_FIREBASE_*` | Firebase web config (Firestore, Auth, Storage) |
+
+Chat uses a user-supplied Groq API key stored in Firestore (`users/{uid}.api_keys.groq`) — no backend URL is needed on the public frontend.
+
+### Admin UI (`.env.local`)
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_FIREBASE_*` | Same Firebase project as frontend (Auth only) |
+
+Backend URL is hardcoded to `http://localhost:8000` in `admin-ui/lib/api-client.ts` since it's local-only.
 
 ---
 
@@ -160,9 +228,9 @@ npm run dev   # http://localhost:3000
 
 ```
 Project-TJSR/
-├── backend/
+├── backend/                      # Local — FastAPI + Celery, writes to Firestore
 │   └── app/
-│       ├── api/v1/endpoints/    # FastAPI route handlers
+│       ├── api/v1/endpoints/    # FastAPI route handlers (incl. firebase_admin.py)
 │       ├── models/              # SQLAlchemy ORM models
 │       ├── schemas/             # Pydantic schemas
 │       ├── services/
@@ -171,12 +239,18 @@ Project-TJSR/
 │       │   ├── rag/             # Qdrant embeddings + chat engine
 │       │   ├── graph/           # Neo4j knowledge graph
 │       │   ├── telegram/        # Telegram bot
-│       │   └── resume/          # Skill extraction
+│       │   ├── resume/          # Skill extraction
+│       │   └── firebase_sync.py # Pushes jobs/stats/graph/users to Firestore
 │       └── workers/             # Celery tasks + Beat schedule
-├── frontend/
+├── frontend/                     # Public (Vercel) — reads Firestore only
 │   ├── app/dashboard/           # Next.js App Router pages
 │   ├── components/dashboard/    # Sidebar, Topbar, JobCard, etc.
-│   └── lib/                     # API client, auth, theme context
+│   └── lib/                     # firestore.ts, firebase.ts, auth, theme context
+├── admin-ui/                     # Local only (port 3001) — calls backend directly
+│   ├── app/dashboard/           # scraper, bot, debug, firebase sync pages
+│   └── lib/                     # api-client.ts (localhost:8000), firebase.ts (auth)
+├── firestore.rules               # Firestore security rules
+├── firestore.indexes.json        # Composite indexes for jobs queries
 ├── Classifier_Model_training/   # DistilBERT fine-tuning scripts
 └── docs/
     ├── MASTER_PLAN.md
