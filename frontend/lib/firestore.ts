@@ -1,5 +1,6 @@
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteField,
+  addDoc, serverTimestamp,
   query, where, orderBy, limit, startAfter, QueryConstraint,
   type DocumentData, type QueryDocumentSnapshot, Timestamp,
 } from 'firebase/firestore';
@@ -190,4 +191,139 @@ export async function queueRecompute(uid: string): Promise<void> {
     action: 'recompute',
     queued_at: new Date(),
   });
+}
+
+// ─── Company background checks ────────────────────────────────────────────────
+
+export type ResearchStatus = 'pending' | 'processing' | 'processed' | 'failed';
+export type StageStatus = 'pending' | 'running' | 'done' | 'failed';
+
+export const RESEARCH_STAGES = [
+  'validate', 'cache_check', 'collect', 'red_flags', 'synthesize', 'position_analysis',
+] as const;
+export type ResearchStage = (typeof RESEARCH_STAGES)[number];
+
+export interface FSReportSection {
+  text_md: string;
+  citations: number[];
+  insufficient: boolean;
+}
+
+export interface FSRedFlag {
+  signal: string;
+  severity: 'high' | 'medium' | 'low' | 'info';
+  detail: string;
+  evidence_url: string;
+  source_id: number | null;
+}
+
+export interface FSSource {
+  id: number;
+  url: string;
+  title: string;
+  domain: string;
+  kind: 'website' | 'news' | 'reddit' | 'searxng' | 'whois' | 'github' | 'internal_jobs';
+  retrieved_at: Timestamp;
+}
+
+export interface FSCompanyReport {
+  schema_version: number;
+  slug: string;
+  company_name_canonical: string;
+  aliases: string[];
+  status: 'complete';
+  generated_at: Timestamp;
+  expires_at: Timestamp;
+  sections: {
+    overview: FSReportSection;
+    clients_products: FSReportSection;
+    culture_reviews: FSReportSection;
+    financial_signals: FSReportSection;
+    tech_stack: FSReportSection;
+  };
+  red_flags: FSRedFlag[];
+  review_links: { platform: string; url: string; title: string }[];
+  internal_jobs_signal: { active_postings: number; top_skills: string[]; sample_titles: string[] };
+  sources: FSSource[];
+}
+
+export interface FSResearchRequest {
+  id: string;
+  uid: string;
+  company_name: string;
+  position: string;
+  jd_text: string;
+  consent: boolean;
+  status: ResearchStatus;
+  created_at: Timestamp;
+  company_slug?: string;
+  company_report_slug?: string;
+  progress?: Partial<Record<ResearchStage, { status: StageStatus; at?: Timestamp }>>;
+  position_analysis?: {
+    role: string;
+    sections: {
+      likely_projects: FSReportSection;
+      exposure_learning: FSReportSection;
+      common_stack: FSReportSection;
+      jd_notes?: FSReportSection;
+    };
+    generated_at: Timestamp;
+  };
+  error?: string;
+  processed_at?: Timestamp;
+}
+
+/**
+ * Mirror of backend slugify_company() — used only for optimistic "cached report
+ * exists" hinting; the backend-computed slug on the request doc is authoritative.
+ */
+export function slugifyCompany(name: string): string {
+  const suffixes = ['pvt', 'ltd', 'limited', 'private', 'inc', 'llc', 'llp', 'corp', 'corporation', 'co', 'plc'];
+  let s = name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim();
+  let words = s.split(/\s+/);
+  while (words.length > 1 && suffixes.includes(words[words.length - 1])) {
+    words = words.slice(0, -1);
+  }
+  return words.join('-');
+}
+
+export async function submitResearchRequest(
+  uid: string,
+  input: { companyName: string; position: string; jdText?: string },
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'research_requests'), {
+    uid,
+    company_name: input.companyName.trim().slice(0, 120),
+    position: input.position.trim().slice(0, 120),
+    jd_text: (input.jdText ?? '').slice(0, 15000),
+    consent: true,
+    status: 'pending',
+    created_at: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function fetchResearchRequests(uid: string): Promise<FSResearchRequest[]> {
+  const snap = await getDocs(query(
+    collection(db, 'research_requests'),
+    where('uid', '==', uid),
+    orderBy('created_at', 'desc'),
+    limit(20),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as FSResearchRequest));
+}
+
+export async function fetchResearchRequest(requestId: string): Promise<FSResearchRequest | null> {
+  const snap = await getDoc(doc(db, 'research_requests', requestId));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as FSResearchRequest) : null;
+}
+
+export async function fetchCompanyReport(slug: string): Promise<FSCompanyReport | null> {
+  const snap = await getDoc(doc(db, 'company_reports', slug));
+  return snap.exists() ? (snap.data() as FSCompanyReport) : null;
 }

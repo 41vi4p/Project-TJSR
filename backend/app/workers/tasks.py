@@ -240,3 +240,19 @@ def bulk_sync_jobs_to_firebase():
     """
     from app.services.firebase_sync import bulk_sync_jobs
     return bulk_sync_jobs()
+
+
+@celery_app.task(
+    name="app.workers.tasks.process_pending_research",
+    soft_time_limit=540,
+    time_limit=600,
+)
+def process_pending_research():
+    """
+    Consume Firestore research_requests: run company background checks
+    (collect → red-flag → Groq synthesis with the requester's own key) and
+    write reports to company_reports/{slug}. Time-limited so a hung scrape
+    or LLM call can't block the worker indefinitely.
+    """
+    from app.services.research.orchestrator import process_pending_research as _run
+    return _run()

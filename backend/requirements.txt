@@ -47,6 +47,9 @@ sentence-transformers==3.3.1
 # Telegram Bot
 python-telegram-bot==21.9
 
+# Company research (background checks)
+python-whois==0.9.6
+
 # Utilities
 pydantic==2.10.4
 pydantic-settings==2.7.1

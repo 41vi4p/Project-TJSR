@@ -69,6 +69,23 @@ services:
     networks:
       - tjsr-network
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: tjsr-searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tjsr-network
+
 volumes:
   postgres_data:
   neo4j_data:

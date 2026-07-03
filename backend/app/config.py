@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     featherless_api_key: str = ""
     featherless_model: str = "Qwen/Qwen3-8B"
 
+    # Company research (background checks)
+    searxng_url: str = "http://localhost:8080"
+    groq_model: str = "llama-3.3-70b-versatile"
+
     # Celery
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"

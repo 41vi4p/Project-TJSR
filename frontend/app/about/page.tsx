@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Search, Brain, Target, BellRing, MessageSquare, Network,
-  Server, Cloud, Shield, Github, ArrowRight, Database, Bot,
+  Server, Cloud, Shield, Github, ArrowRight, Database, Bot, ShieldCheck,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/navbar';
 import { Footer } from '@/components/landing/footer';
@@ -36,6 +36,7 @@ const pipeline = [
 ];
 
 const features = [
+  { icon: ShieldCheck, title: 'Company Background Checks', description: 'Cited research reports with scam red flags, culture signals, and role-specific analysis — before you apply.' },
   { icon: Brain, title: 'AI Job Matching', description: 'Hybrid keyword + semantic scoring surfaces the roles that actually fit your skills.' },
   { icon: BellRing, title: 'Instant Alerts', description: 'Get notified the moment a job scoring ≥40% skill overlap is discovered.' },
   { icon: MessageSquare, title: 'RAG Chat', description: 'Ask an AI assistant about the job database — grounded in the top semantically similar postings.' },

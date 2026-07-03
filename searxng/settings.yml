@@ -1,0 +1,13 @@
+# TJSR SearXNG config — used by the company background-check collectors.
+# Both `formats: [html, json]` AND `limiter: false` are required, otherwise
+# every backend request with format=json is rejected with 403.
+use_default_settings: true
+
+server:
+  secret_key: "945800567dbe7ecf03cabb683f10736233fccbf7fda29c53e6371b6ce5a01a2f"
+  limiter: false
+
+search:
+  formats:
+    - html
+    - json

@@ -37,6 +37,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.sync_graph_to_firebase",
         "schedule": crontab(minute=30, hour="*/6"),  # 30 min after scrape
     },
+    # Company background checks: interactive feature, poll every minute.
+    # Overlapping ticks are prevented by a Redis consumer lock in the service.
+    "process-pending-research": {
+        "task": "app.workers.tasks.process_pending_research",
+        "schedule": 60,
+    },
 }
 
 celery_app.autodiscover_tasks(["app.workers"])

@@ -1,6 +1,6 @@
 # TJSR — Tracker for Job Search & Reporting
 
-[![Version](https://img.shields.io/badge/version-1.0.9-yellow.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.10-yellow.svg)](docs/CHANGELOG.md)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)](https://python.org)
@@ -19,6 +19,7 @@ TJSR is a full-stack AI-powered job discovery platform that:
 - **Scrapes** career pages and public job APIs every 6 hours automatically
 - **Classifies** jobs as tech/non-tech using a fine-tuned DistilBERT model + keyword fallback
 - **Matches** jobs to your resume using hybrid keyword + semantic (Qdrant) scoring
+- **Background-checks companies** before you apply — cited research reports with scam red flags, culture signals, and role-specific analysis
 - **Notifies** you via in-app notifications, Telegram bot, and email digest
 - **Lets you chat** with an AI assistant (Ollama/RAG) about the job database
 - **Visualises** company–skill relationships in a Neo4j knowledge graph
@@ -82,8 +83,9 @@ TJSR is split into three deployables that never talk to each other directly — 
 | Vector DB | Qdrant (384-dim MiniLM embeddings) |
 | Graph DB | Neo4j 5 |
 | Queue | Celery + Redis |
-| LLM (chat) | Groq (public frontend, user-supplied API key) |
+| LLM (chat + company research) | Groq (user-supplied API key — per-user, never shared) |
 | LLM (backend RAG) | Ollama (local, qwen3) |
+| Search | SearXNG (self-hosted, company research collectors) |
 | ML | Fine-tuned DistilBERT (tech/non-tech classifier) |
 | Data bridge | Firebase Firestore (jobs, stats, graph snapshot, user profiles, resume queue) |
 | Auth | Firebase Authentication |
@@ -100,8 +102,15 @@ TJSR is split into three deployables that never talk to each other directly — 
 - **Fuzzy deduplication** using PostgreSQL `pg_trgm` similarity
 - **Auto-expiry**: jobs older than 30 days are archived
 
+### Company Background Checks
+- Submit **{company, position, optional JD}** → cited AI research report on the user dashboard
+- **Deterministic red flags**: domain age (WHOIS), pay-for-training/deposit mentions, scam mentions across distinct sites, negative news, review-sentiment heuristic — each with evidence links
+- **Collectors**: company website, Google News RSS, SearXNG search snippets, Reddit, GitHub org, and TJSR's own jobs DB; Glassdoor/AmbitionBox get deep links (never scraped)
+- **Per-user Groq key**: synthesis runs on the requester's own API key with explicit consent (`/privacy`, `/terms`); every claim is citation-validated, missing evidence says "Insufficient data"
+- Company reports cached 30 days and shared across signed-in users; position analysis stays private
+
 ### Resume & Matching
-- Upload PDF/DOCX/TXT resume → extract 130+ tech skills
+- Upload PDF resume → extract 130+ tech skills
 - **Hybrid matching**: 60% keyword overlap + 40% Qdrant semantic similarity
 - Match explanations: matched skills + missing skills (gap analysis)
 - Per-user job alerts when a new job scores ≥40% skill overlap
@@ -142,7 +151,7 @@ cp .env.example .env
 ### 2. Start infrastructure
 
 ```bash
-docker-compose up -d   # PostgreSQL, Redis, Neo4j, Qdrant
+docker-compose up -d   # PostgreSQL, Redis, Neo4j, Qdrant, SearXNG
 ```
 
 ### 3. Backend
@@ -199,6 +208,8 @@ Controls scraper runs, bot/mail settings, debug logs, and manual Firebase sync. 
 | `OLLAMA_MODEL` | Model name (default: qwen3:latest) | Optional |
 | `QDRANT_HOST` | Qdrant host | Optional |
 | `NEO4J_URI` | Neo4j bolt URI | Optional |
+| `SEARXNG_URL` | SearXNG URL for company research (default `http://localhost:8080`) | Optional |
+| `GROQ_MODEL` | Groq model for research reports (default `llama-3.3-70b-versatile`) | Optional |
 | `SMTP_HOST` | SMTP server for email digests | Optional |
 | `SMTP_USER` | SMTP username | Optional |
 | `SMTP_PASS` | SMTP password | Optional |
@@ -240,6 +251,7 @@ Project-TJSR/
 │       │   ├── graph/           # Neo4j knowledge graph
 │       │   ├── telegram/        # Telegram bot
 │       │   ├── resume/          # Skill extraction
+│       │   ├── research/        # Company background checks (collectors, red flags, Groq synthesis)
 │       │   └── firebase_sync.py # Pushes jobs/stats/graph/users to Firestore
 │       └── workers/             # Celery tasks + Beat schedule
 ├── frontend/                     # Public (Vercel) — reads Firestore only
@@ -250,7 +262,8 @@ Project-TJSR/
 │   ├── app/dashboard/           # scraper, bot, debug, firebase sync pages
 │   └── lib/                     # api-client.ts (localhost:8000), firebase.ts (auth)
 ├── firestore.rules               # Firestore security rules
-├── firestore.indexes.json        # Composite indexes for jobs queries
+├── firestore.indexes.json        # Composite indexes for jobs + research queries
+├── searxng/                      # SearXNG config (company research search)
 ├── Classifier_Model_training/   # DistilBERT fine-tuning scripts
 └── docs/
     ├── MASTER_PLAN.md
