@@ -146,22 +146,38 @@ cp .env.example .env
 # Edit .env with your credentials
 ```
 
-### 2. Start infrastructure
+### 2. Backend — all-in-Docker (recommended, works on Raspberry Pi)
+
+One image (`backend/Dockerfile`, built from the repo root) runs the API, the
+Celery worker, beat, and the Telegram bot. Secrets are **not** baked into the
+image: `backend/.env` is loaded at runtime and `firebase-service-account.json`
+is mounted read-only from the project root.
 
 ```bash
-docker-compose up -d   # PostgreSQL, Redis, Qdrant, SearXNG
+docker compose up -d --build          # infra + API + worker + beat
+docker compose --profile bot up -d    # also start the Telegram bot (needs TELEGRAM_BOT_TOKEN)
 ```
 
-### 3. Backend
+Cross-build for a Raspberry Pi (arm64) from an x86 machine, then load it there:
 
 ```bash
+docker buildx build --platform linux/arm64 -f backend/Dockerfile -t tjsr-backend:latest -o type=docker,dest=tjsr-backend.tar .
+scp tjsr-backend.tar docker-compose.yml firebase-service-account.json pi@raspberrypi:~/tjsr/
+# on the Pi (with backend/.env placed next to the compose file as backend/.env):
+docker load -i tjsr-backend.tar && docker compose up -d
+```
+
+### 3. Backend — bare-metal dev alternative
+
+```bash
+docker compose up -d postgres redis qdrant searxng   # infra only
 cd backend
 pip install -r requirements.txt
 playwright install chromium   # for Playwright engine
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 4. Celery worker + Beat (optional, for scheduled scraping)
+### 4. Celery worker + Beat (bare-metal dev, for scheduled scraping)
 
 ```bash
 cd backend

@@ -1,0 +1,17 @@
+# Allowlist build context: exclude everything, then re-include only what the
+# backend image needs. Secrets (.env, firebase-service-account.json) and the
+# frontends can never end up inside the image this way.
+*
+!backend/app
+!backend/requirements.txt
+!backend/alembic.ini
+!Classifier_Model_training/bert_finetuned
+
+# Belt and braces: even if the allowlist above is loosened later,
+# never let these into a build context.
+**/.env
+**/.env.*
+**/firebase-service-account*.json
+**/__pycache__
+**/celerybeat-schedule*
+**/.pytest_cache

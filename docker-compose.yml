@@ -1,4 +1,74 @@
+# Shared definition for all four backend containers (API, worker, beat, bot).
+# Secrets stay OUT of the image: backend/.env is loaded at runtime (optional),
+# and the Firebase service-account key is mounted read-only from the host.
+x-backend-common: &backend-common
+  image: tjsr-backend:latest
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  env_file:
+    - path: ./backend/.env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tjsr}:${POSTGRES_PASSWORD:-tjsr_secret}@postgres:5432/${POSTGRES_DB:-tjsr_db}
+    SYNC_DATABASE_URL: postgresql://${POSTGRES_USER:-tjsr}:${POSTGRES_PASSWORD:-tjsr_secret}@postgres:5432/${POSTGRES_DB:-tjsr_db}
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: redis://redis:6379/1
+    CELERY_RESULT_BACKEND: redis://redis:6379/2
+    QDRANT_HOST: qdrant
+    SEARXNG_URL: http://searxng:8080
+    FIREBASE_SERVICE_ACCOUNT_KEY: /run/secrets/firebase-sa
+  volumes:
+    - ./firebase-service-account.json:/run/secrets/firebase-sa:ro
+  restart: unless-stopped
+  networks:
+    - tjsr-network
+
 services:
+  backend:
+    <<: *backend-common
+    container_name: tjsr-backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    <<: *backend-common
+    container_name: tjsr-worker
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1
+    depends_on:
+      backend:
+        condition: service_healthy   # API creates/updates the DB schema on startup
+
+  beat:
+    <<: *backend-common
+    container_name: tjsr-beat
+    command: celery -A app.workers.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  bot:
+    <<: *backend-common
+    container_name: tjsr-bot
+    command: python -c "from app.services.telegram.bot import run_bot; run_bot()"
+    profiles: ["bot"]   # opt-in: docker compose --profile bot up -d (needs TELEGRAM_BOT_TOKEN)
+    depends_on:
+      backend:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     container_name: tjsr-postgres
