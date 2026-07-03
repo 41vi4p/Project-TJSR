@@ -26,14 +26,30 @@ _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 # Per-kind snippet budget: (max docs, priority — lowest truncated first)
 _KIND_BUDGET = {
     "website":       (3, 5),
-    "searxng":       (8, 4),
+    "wikipedia":     (1, 5),
+    "searxng":       (15, 4),
     "news":          (5, 3),
     "reddit":        (4, 2),
     "github":        (1, 1),
     "internal_jobs": (1, 5),
 }
 _SNIPPET_CHARS = 900
-_PROMPT_CHAR_BUDGET = 26000  # ≈ 7-8k tokens, fits Groq free-tier TPM
+_PROMPT_CHAR_BUDGET = 30000
+
+
+def _pick_searxng_balanced(sources: list[SourceDoc], max_docs: int) -> list[SourceDoc]:
+    """Round-robin across query categories so every report section gets
+    evidence — otherwise review snippets (discovered first) fill the whole
+    budget and finance/tech/clients sections starve."""
+    by_cat: dict[str, list[SourceDoc]] = {}
+    for s in sources:
+        by_cat.setdefault(s.category or "other", []).append(s)
+    picked: list[SourceDoc] = []
+    while len(picked) < max_docs and any(by_cat.values()):
+        for cat in list(by_cat.keys()):
+            if by_cat[cat] and len(picked) < max_docs:
+                picked.append(by_cat[cat].pop(0))
+    return picked  # ≈ 7-8k tokens, fits Groq free-tier TPM
 
 COMPANY_SECTIONS = ["overview", "clients_products", "culture_reviews",
                     "financial_signals", "tech_stack"]
@@ -120,12 +136,19 @@ def _build_context(sources: list[SourceDoc]) -> str:
     truncated first when over the prompt budget."""
     picked: list[SourceDoc] = []
     for kind, (max_docs, _prio) in _KIND_BUDGET.items():
-        picked.extend([s for s in sources if s.kind == kind][:max_docs])
+        of_kind = [s for s in sources if s.kind == kind]
+        if kind == "searxng":
+            picked.extend(_pick_searxng_balanced(of_kind, max_docs))
+        else:
+            picked.extend(of_kind[:max_docs])
     picked.sort(key=lambda s: s.id)
 
     def render(docs: list[SourceDoc]) -> str:
+        # Wikipedia gets its full extract — it's the densest fact source
+        # (ownership, acquisitions, revenue) and there's only ever one.
         return "\n\n".join(
-            f"[{s.id}] ({s.kind}) {s.title}\nURL: {s.url}\n{s.text[:_SNIPPET_CHARS]}"
+            f"[{s.id}] ({s.kind}) {s.title}\nURL: {s.url}\n"
+            f"{s.text if s.kind == 'wikipedia' else s.text[:_SNIPPET_CHARS]}"
             for s in docs
         )
 

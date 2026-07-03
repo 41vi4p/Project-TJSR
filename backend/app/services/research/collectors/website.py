@@ -42,11 +42,12 @@ def _scrape_page(url: str) -> str:
 
 def resolve_official_site(searxng_url: str, company: str) -> str | None:
     """Pick the first non-excluded result of the 'official website' query whose
-    domain plausibly matches the company name."""
+    domain contains a company-name token. A token match is REQUIRED: accepting
+    an arbitrary top result once attributed a stranger's website (and its whois
+    record) to the company being researched — worse than finding nothing."""
     company_tokens = [t for t in company.lower().split() if len(t) > 2]
     candidates = search_official_site(searxng_url, company)
 
-    best = None
     for r in candidates:
         url = r.get("url", "")
         if not url:
@@ -54,11 +55,9 @@ def resolve_official_site(searxng_url: str, company: str) -> str | None:
         dom = domain_of(url)
         if any(x in dom for x in _EXCLUDED_DOMAINS):
             continue
-        # prefer a domain containing a company-name token
         if any(t in dom.replace("-", "") for t in company_tokens):
             return f"{urlparse(url).scheme}://{urlparse(url).netloc}"
-        best = best or f"{urlparse(url).scheme}://{urlparse(url).netloc}"
-    return best
+    return None
 
 
 def collect(searxng_url: str, company: str) -> tuple[list[SourceDoc], str | None]:

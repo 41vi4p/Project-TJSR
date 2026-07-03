@@ -47,8 +47,9 @@ class SourceDoc:
     persisted to Firestore (1 MB doc limit); only url/title/domain/kind go out."""
     url: str
     title: str
-    kind: str  # website | news | reddit | searxng | whois | github | internal_jobs
+    kind: str  # website | news | reddit | searxng | wikipedia | whois | github | internal_jobs
     text: str = ""
+    category: str = ""  # searxng query category (reviews/culture/clients/scam/finance/tech)
     id: int = -1  # assigned by SourceRegistry
     retrieved_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

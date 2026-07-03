@@ -1,6 +1,6 @@
 # TJSR — Tracker for Job Search & Reporting
 
-[![Version](https://img.shields.io/badge/version-1.0.11-yellow.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.12-yellow.svg)](docs/CHANGELOG.md)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)](https://python.org)
@@ -105,7 +105,7 @@ TJSR is split into three deployables that never talk to each other directly — 
 ### Company Background Checks
 - Submit **{company, position, optional JD}** → cited AI research report on the user dashboard
 - **Deterministic red flags**: domain age (WHOIS), pay-for-training/deposit mentions, scam mentions across distinct sites, negative news, review-sentiment heuristic — each with evidence links
-- **Collectors**: company website, Google News RSS, SearXNG search snippets, Reddit, GitHub org, and TJSR's own jobs DB; Glassdoor/AmbitionBox get deep links (never scraped)
+- **Collectors**: company website, Wikipedia (resolves brands to parent companies), Google News RSS, SearXNG search snippets (10 categorized queries), Reddit, GitHub org, and TJSR's own jobs DB; Glassdoor/AmbitionBox get deep links (never scraped)
 - **Per-user Groq key**: synthesis runs on the requester's own API key with explicit consent (`/privacy`, `/terms`); every claim is citation-validated, missing evidence says "Insufficient data"
 - Company reports cached 30 days and shared across signed-in users; position analysis stays private
 

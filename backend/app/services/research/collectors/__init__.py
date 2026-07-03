@@ -25,6 +25,7 @@ def run_all(company: str, settings) -> dict:
     """
     from app.services.research.collectors import (
         github_org, internal_jobs, news, reddit, searxng, website, whois_lookup,
+        wikipedia,
     )
 
     registry = SourceRegistry()
@@ -44,6 +45,11 @@ def run_all(company: str, settings) -> dict:
         whois_meta = whois_lookup.collect(official_domain)
     except Exception as exc:
         logger.warning(f"whois collector failed: {exc}")
+
+    try:
+        registry.add_all(wikipedia.collect(company))
+    except Exception as exc:
+        logger.warning(f"wikipedia collector failed: {exc}")
 
     try:
         sx_sources, review_links = searxng.collect(settings.searxng_url, company)

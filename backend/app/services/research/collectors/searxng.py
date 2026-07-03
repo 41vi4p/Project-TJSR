@@ -16,7 +16,9 @@ from app.services.research.utils import SourceDoc, normalize_url
 
 logger = logging.getLogger(__name__)
 
-_QUERY_DELAY_S = 2.5
+# 4s between queries: 11 rapid queries per company from one IP is what gets
+# the upstream engines to suspend the instance. Slower is fine — depth over speed.
+_QUERY_DELAY_S = 4.0
 
 _REVIEW_PLATFORMS = {
     "glassdoor.com": "glassdoor",
@@ -25,16 +27,21 @@ _REVIEW_PLATFORMS = {
     "reddit.com": "reddit",
 }
 
-# (query template, results to keep)
-_QUERIES: list[tuple[str, int]] = [
-    ('"{company}" employee reviews', 10),
-    ('"{company}" site:glassdoor.com OR site:ambitionbox.com', 10),
-    ('"{company}" work culture OR "work life balance"', 8),
-    ('"{company}" clients OR partners OR "case study"', 8),
-    ('"{company}" scam OR fraud OR fake offer', 10),
-    ('"{company}" "training fee" OR "registration fee" OR deposit', 8),
-    ('"{company}" funding OR revenue OR acquisition OR layoffs', 10),
-    ('"{company}" tech stack OR "engineering blog"', 8),
+# (query template, results to keep, category)
+# Categories drive balanced context selection in the synthesizer — without
+# them, review snippets (discovered first) crowd finance/tech snippets out of
+# the LLM prompt entirely.
+_QUERIES: list[tuple[str, int, str]] = [
+    ('"{company}" employee reviews', 10, "reviews"),
+    ('"{company}" site:glassdoor.com OR site:ambitionbox.com', 10, "reviews"),
+    ('"{company}" work culture OR "work life balance"', 8, "culture"),
+    ('"{company}" clients OR partners OR "case study"', 8, "clients"),
+    ('"{company}" scam OR fraud OR fake offer', 10, "scam"),
+    ('"{company}" "training fee" OR "registration fee" OR deposit', 8, "scam"),
+    ('"{company}" revenue OR funding OR valuation OR "parent company"', 10, "finance"),
+    ('"{company}" acquisition OR investors OR "annual report" OR profit', 8, "finance"),
+    ('"{company}" site:crunchbase.com OR site:tracxn.com OR site:wikipedia.org', 8, "finance"),
+    ('"{company}" tech stack OR "engineering blog"', 8, "tech"),
 ]
 
 
@@ -65,8 +72,12 @@ def collect(base_url: str, company: str) -> tuple[list[SourceDoc], list[dict]]:
     sources: list[SourceDoc] = []
     review_links: list[dict] = []
     seen: set[str] = set()
+    # Relevance gate: when the good engines are suspended, the remainder can
+    # return pure spam (random parked domains). A result that never mentions
+    # the company is not evidence about it.
+    company_tokens = [t for t in company.lower().split() if len(t) > 2] or [company.lower()]
 
-    for i, (template, limit) in enumerate(_QUERIES):
+    for i, (template, limit, category) in enumerate(_QUERIES):
         if i > 0:
             time.sleep(_QUERY_DELAY_S)
         query = template.format(company=company)
@@ -80,6 +91,9 @@ def collect(base_url: str, company: str) -> tuple[list[SourceDoc], list[dict]]:
             url, title = r.get("url", ""), r.get("title", "")
             if not url:
                 continue
+            blob = f"{title} {r.get('content') or ''} {url}".lower()
+            if not any(t in blob for t in company_tokens):
+                continue  # spam / unrelated result
             key = normalize_url(url)
             if key in seen:
                 continue
@@ -98,6 +112,7 @@ def collect(base_url: str, company: str) -> tuple[list[SourceDoc], list[dict]]:
                 url=url,
                 title=title,
                 kind="searxng",
+                category=category,
                 text=(r.get("content") or "")[:900],
             ))
 

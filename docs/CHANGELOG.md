@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.12 — 2026-07-03
+Company Check research depth upgrades (after CarWale test returned empty financials):
+- **New Wikipedia collector** — keyless and immune to search-engine suspensions; resolves brands to their parent's article when they have no page of their own (CarWale → CarTrade.com) by accepting candidates whose article text mentions the company. Feeds ownership/acquisition/revenue facts to the financial section.
+- **Balanced context selection (bug fix)**: search snippets entered the LLM prompt in discovery order, so review snippets (queried first) crowded finance/tech/clients snippets out entirely — sections starved even when evidence had been collected. Snippets are now tagged with a query category and picked round-robin across categories.
+- **Deeper finance coverage**: two extra finance queries (revenue/valuation/parent company; acquisition/investors/annual report) plus Crunchbase/Tracxn/Wikipedia site-restricted snippets.
+- **SearXNG resilience**: Mojeek and Qwant engines enabled so one provider's CAPTCHA suspension no longer blanks a whole category; snippet budget raised 8→15 docs, prompt budget 26k→30k chars; inter-query delay 2.5s→4s (fewer suspensions).
+- **Wrong-domain fix (report integrity)**: the official-site resolver accepted an arbitrary top search result when nothing token-matched the company name — during an engine outage this attributed a spam domain's website and WHOIS record to the researched company. A domain token match is now required; no match honestly means "no official site found".
+- **Spam relevance gate**: search results that never mention the company (in title, snippet, or URL) are discarded — during engine outages the surviving engine can return pure spam, which previously entered the evidence pool.
+- **Wikipedia full-article extract**: the API silently clamps `exchars` at 1200 chars, cutting off History/Finances sections; the collector now fetches the full plaintext extract (truncated to 6k) and the synthesizer passes Wikipedia untruncated — this carries IPO/acquisition/revenue facts into the financial section.
+
 ## v1.0.11 — 2026-07-03
 Company Check accuracy fixes after first real-user test (IDFC First Bank report came back news-only with a false scam flag):
 - **Degraded-run detection**: if every SearXNG query fails AND no official site is found (upstream engines suspend on query bursts), the report is cached for only 2 hours instead of 30 days so it self-heals; `degraded: true` stored on the report.

@@ -11,3 +11,11 @@ search:
   formats:
     - html
     - json
+
+# Extra engines beyond the defaults — when DuckDuckGo/Startpage/Brave suspend
+# this instance's IP (CAPTCHA on query bursts), these keep results flowing.
+engines:
+  - name: mojeek
+    disabled: false
+  - name: qwant
+    disabled: false
