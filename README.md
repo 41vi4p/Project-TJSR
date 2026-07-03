@@ -207,6 +207,12 @@ See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full version history.
 
 ---
 
+## Documentation
+
+Full project documentation: [Google Doc](https://docs.google.com/document/d/1N2CmqfgxLy89CCKTg3LFd7dvZoGmfa1pCll1kcVICMs/edit?usp=sharing)
+
+---
+
 ## License
 
 [GPL-3.0](LICENSE)
