@@ -174,6 +174,10 @@ export default function ResearchReportPage({ params }: { params: Promise<{ id: s
           {' · '}generated {report.generated_at?.toDate?.().toLocaleDateString?.() ?? ''}
           {' · '}{report.sources.length} sources
         </p>
+        <p className="text-xs theme-muted mt-1.5">
+          AI-generated from public sources — findings (including red flags) may be incorrect or
+          incomplete. Verify via the cited sources before making decisions.
+        </p>
       </div>
 
       {/* Red flags first — the whole point of the feature */}

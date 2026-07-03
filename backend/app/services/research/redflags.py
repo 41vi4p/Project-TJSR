@@ -29,6 +29,15 @@ _PAY_FOR_TRAINING = re.compile(
 
 _SCAM_TERMS = re.compile(r"\bscam\b|\bfraud\b|fake\s+(offer|job|company)|\bcheated\b", re.IGNORECASE)
 
+# scam_mentions must be about the company AS AN EMPLOYER. Generic fraud talk
+# (e.g. criminals scamming a bank's customers) is not a workplace red flag.
+_EMPLOYMENT_CONTEXT = re.compile(
+    r"\bjob\b|\boffer\s+letter\b|\bhiring\b|\brecruit|\binterview\b|\bplacement\b"
+    r"|\bcareer\b|\bemploye[er]|\bjoining\b|\bsalary\b|\binternship\b"
+    r"|scam\s+company|company\s+is\s+a\s+scam|fake\s+company",
+    re.IGNORECASE,
+)
+
 _NEG_NEWS_HIGH = re.compile(
     r"\bfraud\b|\blawsuit\b|\braid(ed)?\b|\binvestigation\b|\bscam\b|shut(ting)?\s+down",
     re.IGNORECASE,
@@ -111,11 +120,21 @@ def evaluate(
             ))
             break  # one flag with the first evidence is enough
 
-    # scam_mentions — count distinct domains whose snippet pairs company name + scam terms
+    # scam_mentions — count distinct domains whose snippet pairs company name +
+    # scam terms IN AN EMPLOYMENT CONTEXT. Two guards against false positives:
+    # (1) restricted to search/discussion sources — news stories about scams
+    #     *targeting* a company's customers (common for banks) are covered
+    #     separately by negative_news and must not fire this signal;
+    # (2) the snippet must also mention jobs/hiring/offers, or explicitly call
+    #     the company itself a scam — generic fraud talk doesn't count.
     scam_domains: dict[str, SourceDoc] = {}
     for src in sources:
+        if src.kind not in ("searxng", "reddit"):
+            continue
         blob = f"{src.title} {src.text}"
-        if company_lower in blob.lower() and _SCAM_TERMS.search(blob):
+        if (company_lower in blob.lower()
+                and _SCAM_TERMS.search(blob)
+                and _EMPLOYMENT_CONTEXT.search(blob)):
             scam_domains.setdefault(domain_of(src.url), src)
     if scam_domains:
         n = len(scam_domains)

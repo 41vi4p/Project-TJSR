@@ -28,6 +28,7 @@ from app.services.research.utils import slugify_company
 logger = logging.getLogger(__name__)
 
 CACHE_TTL_DAYS = 30
+DEGRADED_CACHE_TTL_HOURS = 2  # search backend struggling → let the report self-heal soon
 STALE_CLAIM_MINUTES = 15
 
 _CONSUMER_LOCK = "research:consumer:lock"
@@ -108,17 +109,29 @@ def _build_company_report(db, r, company: str, slug: str, api_key: str,
     flags_fs = [f.to_firestore() for f in flags]
     reporter.done("red_flags")
 
+    # Degraded collection: every SearXNG query failed AND no official site was
+    # found (upstream engines suspend on bursts). The report is still built
+    # honestly from whatever remains, but cached briefly so it self-heals
+    # instead of freezing a news-only report for 30 days.
+    degraded = not registry.by_kind("searxng") and gathered["official_domain"] is None
+    if degraded:
+        logger.warning(f"degraded collection for {slug} — caching only "
+                       f"{DEGRADED_CACHE_TTL_HOURS}h")
+
     reporter.start("synthesize")
     synthesis = synthesize_company_report(company, registry.sources, flags_fs, api_key, settings)
     now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(hours=DEGRADED_CACHE_TTL_HOURS) if degraded
+                  else now + timedelta(days=CACHE_TTL_DAYS))
     report = {
         "schema_version": 1,
         "slug": slug,
         "company_name_canonical": synthesis["company_name_canonical"],
         "aliases": [company],
         "status": "complete",
+        "degraded": degraded,
         "generated_at": now,
-        "expires_at": now + timedelta(days=CACHE_TTL_DAYS),
+        "expires_at": expires_at,
         "sections": synthesis["sections"],
         "red_flags": flags_fs,
         "review_links": gathered["review_links"],

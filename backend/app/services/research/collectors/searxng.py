@@ -29,6 +29,8 @@ _REVIEW_PLATFORMS = {
 _QUERIES: list[tuple[str, int]] = [
     ('"{company}" employee reviews', 10),
     ('"{company}" site:glassdoor.com OR site:ambitionbox.com', 10),
+    ('"{company}" work culture OR "work life balance"', 8),
+    ('"{company}" clients OR partners OR "case study"', 8),
     ('"{company}" scam OR fraud OR fake offer', 10),
     ('"{company}" "training fee" OR "registration fee" OR deposit', 8),
     ('"{company}" funding OR revenue OR acquisition OR layoffs', 10),
@@ -88,9 +90,10 @@ def collect(base_url: str, company: str) -> tuple[list[SourceDoc], list[dict]]:
             )
             if platform:
                 review_links.append({"platform": platform, "url": url, "title": title[:200]})
-                if platform != "reddit":
-                    continue  # review-site content stays a deep link only
 
+            # Search-result SNIPPETS are kept as evidence for every result —
+            # including review platforms (ratings/pros-cons text the engines
+            # surface). The review pages themselves are never fetched.
             sources.append(SourceDoc(
                 url=url,
                 title=title,

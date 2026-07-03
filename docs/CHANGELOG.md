@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.11 — 2026-07-03
+Company Check accuracy fixes after first real-user test (IDFC First Bank report came back news-only with a false scam flag):
+- **Degraded-run detection**: if every SearXNG query fails AND no official site is found (upstream engines suspend on query bursts), the report is cached for only 2 hours instead of 30 days so it self-heals; `degraded: true` stored on the report.
+- **Review-site search snippets now kept as evidence**: Glassdoor/AmbitionBox search-result snippets (ratings, pros/cons text) feed `culture_reviews` and the sentiment heuristic — previously they were dropped, leaving culture with nothing to cite. The review pages themselves are still never fetched.
+- **Two new SearXNG queries**: work culture / work-life balance, and clients / partners / case studies (clients had no dedicated query).
+- **scam_mentions false-positive fix**: the signal now requires employment context (job, offer letter, hiring, interview, fees…) or an explicit "company is a scam" phrasing, and only fires from search/discussion sources — news about fraud *targeting* a company's customers (common for banks) no longer flags the company as a scam workplace. Regression-tested with bank-fraud vs job-scam fixtures.
+- **Accuracy disclaimers**: visible note on the Company Check page and report header that findings (including red flags) are AI-generated from public sources and may be incorrect — verify via cited sources.
+- **Position-analysis citation fix**: `jd_notes` is now exempt from the citation requirement when a JD is provided (its grounding is the JD itself, which has no source number), and if the model writes substantive role sections without citations, the call retries once with an explicit citation reminder — previously a citation lapse blanked the whole "Your Role" tab to "Insufficient data".
+
 ## v1.0.10 — 2026-07-03
 - **Company Background Check (new feature)** — submit {company, position, optional JD} from the dashboard and get a cited research report: overview, clients, culture/review sentiment, financial signals, tech stack, deterministic scam red flags (domain age, pay-for-training mentions, scam mentions, negative news, review sentiment), Glassdoor/AmbitionBox deep links, and a private position-specific analysis (likely projects, exposure, common stack, JD red-flag notes).
   - **Architecture**: frontend writes `research_requests/{id}` to Firestore → Celery beat (60s) consumes via `backend/app/services/research/orchestrator.py` → company report cached at `company_reports/{slug}` (30-day TTL, shared across all signed-in users); position analysis stays private per request. Redis consumer + per-company locks; stale-claim recovery for crashed workers.

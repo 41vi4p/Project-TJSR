@@ -174,9 +174,16 @@ Return ONLY a JSON object with this exact schema:
  "jd_notes": {_SECTION_SCHEMA}}}"""
 
 
-def _validate_sections(data: dict, section_keys: list[str], valid_ids: set[int]) -> dict:
+def _validate_sections(
+    data: dict,
+    section_keys: list[str],
+    valid_ids: set[int],
+    citation_exempt: set[str] = frozenset(),
+) -> dict:
     """Drop out-of-range citations; claim-bearing sections with zero valid
-    citations are forced to insufficient (never trust the LLM's own audit)."""
+    citations are forced to insufficient (never trust the LLM's own audit).
+    Sections in `citation_exempt` may stand without citations — used for
+    JD-grounded analysis, where the evidence is the user's own JD text."""
     out = {}
     for key in section_keys:
         sec = data.get(key) or {}
@@ -186,10 +193,22 @@ def _validate_sections(data: dict, section_keys: list[str], valid_ids: set[int])
         insufficient = bool(sec.get("insufficient", False))
         if text == "Insufficient data.":
             insufficient = True
-        if not insufficient and not citations:
+        if not insufficient and not citations and key not in citation_exempt:
             text, insufficient = "Insufficient data.", True
         out[key] = {"text_md": text[:6000], "citations": citations, "insufficient": insufficient}
     return out
+
+
+def _count_forced_insufficient(data: dict, validated: dict, keys: list[str]) -> int:
+    """Sections where the model wrote substantive text but validation forced
+    insufficient because it cited nothing — the signature of a citation lapse
+    rather than genuinely missing evidence."""
+    n = 0
+    for key in keys:
+        raw = str((data.get(key) or {}).get("text_md", "")).strip()
+        if raw and raw != "Insufficient data." and validated[key]["insufficient"]:
+            n += 1
+    return n
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
@@ -243,10 +262,37 @@ def synthesize_position_analysis(
         f"{json.dumps(report_ctx, default=str)[:20000]}\n\n"
         f"── Job description ──\n{jd_text[:6000] or '(none provided)'}"
     )
-    data = _call_groq_json(
-        [{"role": "system", "content": _POSITION_SYSTEM},
-         {"role": "user", "content": user_msg}],
-        api_key, settings,
-    )
+    messages = [{"role": "system", "content": _POSITION_SYSTEM},
+                {"role": "user", "content": user_msg}]
+    data = _call_groq_json(messages, api_key, settings)
+
     valid_ids = {s["id"] for s in company_report.get("sources", [])}
-    return _validate_sections(data, POSITION_SECTIONS, valid_ids)
+    # jd_notes is grounded in the user's own JD — it has no numbered source to
+    # cite, so it may stand without citations (when a JD was actually given).
+    exempt = {"jd_notes"} if jd_text.strip() else set()
+    validated = _validate_sections(data, POSITION_SECTIONS, valid_ids, citation_exempt=exempt)
+
+    # Citation lapse: substantive text but nothing cited across most sections.
+    # One retry with an explicit reminder usually recovers it.
+    if _count_forced_insufficient(data, validated, POSITION_SECTIONS) >= 2:
+        retry_messages = messages + [
+            {"role": "assistant", "content": json.dumps(data)[:3000]},
+            {"role": "user", "content":
+                "Your sections contained claims but empty citations arrays, so they were "
+                "rejected. Rewrite the SAME JSON, and for every claim include the numbers "
+                "of the supporting sources from the company report in that section's "
+                "\"citations\" array. Only mark a section insufficient if the report truly "
+                "has no relevant sources."},
+        ]
+        try:
+            retry_data = _call_groq_json(retry_messages, api_key, settings)
+            retry_validated = _validate_sections(
+                retry_data, POSITION_SECTIONS, valid_ids, citation_exempt=exempt)
+            ok = sum(1 for k in POSITION_SECTIONS if not validated[k]["insufficient"])
+            retry_ok = sum(1 for k in POSITION_SECTIONS if not retry_validated[k]["insufficient"])
+            if retry_ok > ok:
+                validated = retry_validated
+        except (GroqKeyError, GroqCallError):
+            pass  # keep the first result — a failed retry must not fail the request
+
+    return validated

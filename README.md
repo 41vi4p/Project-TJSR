@@ -1,6 +1,6 @@
 # TJSR — Tracker for Job Search & Reporting
 
-[![Version](https://img.shields.io/badge/version-1.0.10-yellow.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.11-yellow.svg)](docs/CHANGELOG.md)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)](https://python.org)

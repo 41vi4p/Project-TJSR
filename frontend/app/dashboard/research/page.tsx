@@ -153,6 +153,11 @@ export default function CompanyResearchPage() {
         <p className="text-gray-400 text-sm">
           Run a background check before you apply — culture, red flags, financial signals, and what the role really looks like.
         </p>
+        <p className="text-xs theme-muted mt-2 flex items-start gap-1.5">
+          <AlertTriangle size={13} className="text-yellow-500 mt-0.5 flex-shrink-0" />
+          Reports are AI-generated from public sources and automated checks — they can be incomplete or
+          incorrect (in either direction). Always verify through the cited sources before deciding.
+        </p>
       </div>
 
       {/* Groq key warning */}
