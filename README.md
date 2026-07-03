@@ -175,6 +175,8 @@ cd backend
 pip install -r requirements.txt
 playwright install chromium   # for Playwright engine
 uvicorn app.main:app --reload --port 8000
+
+docker build -f backend/Dockerfile -t tjsr-backend:latest .
 ```
 
 ### 4. Celery worker + Beat (bare-metal dev, for scheduled scraping)

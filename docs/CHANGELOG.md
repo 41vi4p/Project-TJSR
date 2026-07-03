@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.15 — 2026-07-04
+**New training dataset for the tech/non-tech classifier** (fixes the v1.0.14 known issue: the old `job_dataset_advanced.csv` labels were job-posting-vs-news, so the model never learned tech-ness).
+
+- **New `Classifier_Model_training/generate_tech_dataset.py`** — seeded, deterministic generator producing `tech_vs_nontech_dataset.csv` (8,000 rows, 4,000/4,000 balanced, 100% unique). Label 1 = tech posting, label 0 = non-tech posting or news/noise page.
+  - Rows use the exact inference-time format from `predictor.classify_job_by_id` (`Title: …\nSkills: …\n<desc>`), with ~15% raw-description rows, sometimes-empty skills lines, and title/format noise (seniority prefixes, ALL-CAPS, remote/hybrid suffixes) for robustness.
+  - 19 tech role families and 23 non-tech families; hard positives (tech roles at hospitals/banks/contractors), hard negatives (tech sales, IT recruiters, software asset managers at SaaS companies — tech words, non-tech work), and 8% news articles including tech news (tech vocabulary, not a job).
+  - Label semantics mirror `_keyword_classify`'s intent (product manager/scrum master → tech; UX designer/business analyst → non-tech) so ML and keyword paths agree on philosophy.
+  - Validated in-container against `_keyword_classify`: 95.8% agreement on the 5,485 rows where it fires; all sampled disagreements are keyword-classifier mistakes on the intentional hard cases.
+- `train_bert.py` `DATA_PATH` switched to the new CSV; training config otherwise unchanged (`num_labels=2`, `MAX_LEN=128`, cap 8,000 rows). Retrain with `python train_bert.py`, then rebuild the Docker image so the new `bert_finetuned/` weights are baked in. No backend code change needed — `is_tech = (label == 1)` becomes correct with the new labels.
+
 ## v1.0.14 — 2026-07-04
 **Backend fully containerized for Raspberry Pi home-lab deployment — no secrets in the image.**
 

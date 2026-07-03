@@ -113,7 +113,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description="Backend API for TJSR - Tracker for Job Search and Reporting",
-        version="1.0.14",
+        version="1.0.15",
         lifespan=lifespan,
     )
 
